@@ -57,7 +57,7 @@ export function ScoreReport({
   return (
     <div className="space-y-5">
       {thin && (
-        <p className="rounded-2xl border border-[var(--color-mixed)]/30 bg-[var(--color-mixed)]/10 px-3.5 py-2.5 text-[13px] text-[var(--color-mixed)]">
+        <p className="border border-[var(--color-mixed)]/30 bg-[var(--color-mixed)]/10 px-3.5 py-2.5 text-[13px] text-[var(--color-mixed)]">
           Short sample ({words} words) — reading may be less reliable.
         </p>
       )}
@@ -99,7 +99,7 @@ export function ScoreReport({
             <p className="mt-1 text-[12px] text-[var(--muted)]">{subclass}</p>
           )}
           <p className="mt-1 text-[12px] text-[var(--faint)]">
-            {words} words scored
+            {words} words analyzed
           </p>
         </div>
       </div>
@@ -115,7 +115,7 @@ export function ScoreReport({
             return (
               <div
                 key={key}
-                className="rounded-2xl px-3 py-2.5"
+                className="px-3 py-2.5"
                 style={{
                   border: `1.5px solid ${on ? VERDICT_COLOR[key] : "var(--hairline)"}`,
                   background: on
@@ -132,9 +132,9 @@ export function ScoreReport({
                 >
                   {v}%
                 </p>
-                <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10">
+                <div className="mt-2 h-1 overflow-hidden bg-white/10">
                   <div
-                    className="h-full rounded-full"
+                    className="h-full"
                     style={{
                       width: `${v}%`,
                       background: VERDICT_COLOR[key],

@@ -52,30 +52,38 @@ export function CapturePanel(props: Props) {
   }, [stream]);
 
   const showVideo = props.videoOn && !!stream;
-  const statusLabel = props.speaking ? "Roasting you" : STATUS_COPY[props.status];
+  const statusLabel = props.speaking
+    ? "Roasting you"
+    : STATUS_COPY[props.status];
   const dot = props.speaking
     ? "var(--color-ai)"
     : props.status === "listening"
-      ? "var(--color-human)"
-      : props.status === "muted"
-        ? "var(--color-mixed)"
-        : props.status === "error"
-          ? "var(--color-ai)"
-          : "var(--faint)";
+    ? "var(--color-human)"
+    : props.status === "muted"
+    ? "var(--color-mixed)"
+    : props.status === "error"
+    ? "var(--color-ai)"
+    : "var(--faint)";
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-5 p-5 lg:p-7">
+    <div className="flex h-full min-h-0 flex-col gap-5 bg-[#111210] p-5 lg:p-7">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="display text-[28px] font-bold">Sloppy</h1>
-          <p className="text-[12px] text-[var(--muted)]">Live AI speech detector</p>
+          <p className="caps text-[10px] font-semibold text-[var(--faint)]">
+            Real-time analysis
+          </p>
+          <h1 className="title mt-1 text-[26px] font-semibold">
+            Live detector
+          </h1>
         </div>
-        <div className="material flex items-center gap-2 rounded-full px-3 py-1.5">
+        <div className="flex items-center gap-2 border border-[var(--hairline)] px-3 py-2">
           <motion.span
             className="h-1.5 w-1.5 rounded-full"
             style={{ background: dot }}
             animate={
-              reduced || !props.running ? { opacity: 1 } : { opacity: [1, 0.35, 1] }
+              reduced || !props.running
+                ? { opacity: 1 }
+                : { opacity: [1, 0.35, 1] }
             }
             transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
           />
@@ -88,7 +96,7 @@ export function CapturePanel(props: Props) {
       {/* The video is absolutely positioned so it can stay mounted, which
           leaves this box with no intrinsic height — hence the explicit floor,
           so it cannot collapse when the panel is short. */}
-      <div className="material relative min-h-[200px] flex-1 overflow-hidden rounded-3xl">
+      <div className="relative min-h-[200px] flex-1 overflow-hidden border border-[var(--hairline)] bg-black">
         <motion.div
           className="absolute inset-0"
           animate={{ opacity: showVideo ? 1 : 0 }}
@@ -119,7 +127,7 @@ export function CapturePanel(props: Props) {
             <button
               type="button"
               onClick={() => void camera.open()}
-              className="material rounded-full px-5 py-2.5 text-[13px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+              className="border border-white/25 bg-black/60 px-5 py-2.5 text-[13px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-white/60"
             >
               Enable camera
             </button>
@@ -127,7 +135,7 @@ export function CapturePanel(props: Props) {
         )}
 
         {props.videoOn && camera.error && !camera.needsGesture && (
-          <p className="absolute inset-x-4 bottom-4 rounded-xl bg-black/70 px-3 py-2 text-[11px] text-[var(--color-mixed)]">
+          <p className="absolute inset-x-4 bottom-4 border border-[var(--color-mixed)]/30 bg-black/80 px-3 py-2 text-[11px] text-[var(--color-mixed)]">
             {camera.error}
           </p>
         )}
@@ -172,14 +180,14 @@ export function CapturePanel(props: Props) {
           onToggle={props.onToggle}
         />
 
-        <IconToggle
+        {/* <IconToggle
           on={!props.running}
           onClick={props.onPreviewVoice}
           label="Hear the roast voice"
           disabled={props.running}
         >
           <SpeakerIcon />
-        </IconToggle>
+        </IconToggle> */}
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
@@ -188,19 +196,28 @@ export function CapturePanel(props: Props) {
           value={props.micId}
           onChange={props.onMicChange}
           disabled={props.running}
-          options={props.mics.map((m) => ({ value: m.deviceId, label: m.label }))}
+          options={props.mics.map((m) => ({
+            value: m.deviceId,
+            label: m.label,
+          }))}
         />
         <Select
           label="Camera"
           value={props.cameraId}
           onChange={props.onCameraChange}
-          options={props.cameras.map((c) => ({ value: c.deviceId, label: c.label }))}
+          options={props.cameras.map((c) => ({
+            value: c.deviceId,
+            label: c.label,
+          }))}
         />
         <Select
           label="Roast voice"
           value={props.voiceId}
           onChange={props.onVoiceChange}
-          options={VOICES.map((v) => ({ value: v.id, label: `${v.name} — ${v.blurb}` }))}
+          options={VOICES.map((v) => ({
+            value: v.id,
+            label: `${v.name} — ${v.blurb}`,
+          }))}
         />
       </div>
 
@@ -258,7 +275,7 @@ function IconToggle({
       aria-pressed={on}
       aria-label={label}
       title={label}
-      className="material grid h-11 w-11 place-items-center rounded-full text-[var(--color-chalk)] outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:cursor-not-allowed"
+      className="grid h-11 w-11 place-items-center border border-[var(--hairline)] bg-white/4 text-[var(--color-chalk)] outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:cursor-not-allowed"
       style={{ opacity: on ? 1 : 0.4 }}
       whileTap={reduced || disabled ? undefined : { scale: 0.92 }}
       transition={{ type: "spring", bounce: 0, duration: 0.18 }}
@@ -270,7 +287,13 @@ function IconToggle({
 
 function SpeakerIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5 fill-none stroke-current"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M4 9.5h3l4.5-3.6v12.2L7 14.5H4z" />
       <path d="M16 9.2a4 4 0 0 1 0 5.6" />
       <path d="M18.6 6.6a7.6 7.6 0 0 1 0 10.8" />
@@ -280,7 +303,12 @@ function SpeakerIcon() {
 
 function CameraIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="1.7" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5 fill-none stroke-current"
+      strokeWidth="1.7"
+      strokeLinejoin="round"
+    >
       <rect x="2.5" y="6.5" width="13" height="11" rx="3" />
       <path d="m15.5 11 6-3.2v8.4l-6-3.2z" />
     </svg>
@@ -289,7 +317,13 @@ function CameraIcon() {
 
 function CameraOffIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5 fill-none stroke-current"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="2.5" y="6.5" width="13" height="11" rx="3" />
       <path d="m15.5 11 6-3.2v8.4l-6-3.2z" />
       <path d="M3 3l18 18" />

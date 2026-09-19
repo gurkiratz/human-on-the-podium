@@ -78,14 +78,14 @@ export function YoutubePreview({ url, startSec = 0 }: Props) {
   if (!videoId) return null;
   if (!ready) {
     return (
-      <div className="aspect-video w-full animate-pulse rounded-2xl bg-white/5" />
+      <div className="aspect-video w-full animate-pulse bg-white/5" />
     );
   }
 
   return (
     <div
       ref={hostRef}
-      className="aspect-video w-full overflow-hidden rounded-2xl bg-black [&_iframe]:!h-full [&_iframe]:!w-full [&_youtube-video]:block [&_youtube-video]:h-full [&_youtube-video]:w-full"
+      className="aspect-video w-full overflow-hidden border border-white/10 bg-black [&_iframe]:!h-full [&_iframe]:!w-full [&_youtube-video]:block [&_youtube-video]:h-full [&_youtube-video]:w-full"
     />
   );
 }

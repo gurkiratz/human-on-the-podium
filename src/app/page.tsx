@@ -28,7 +28,7 @@ export default function Home() {
   // Phones stack and let the page scroll: splitting an 812px screen in half
   // clipped the record button. Desktop keeps the two fixed columns.
   return (
-    <main className="grid min-h-dvh grid-rows-[auto_minmax(340px,1fr)] pt-14 lg:h-dvh lg:grid-cols-[minmax(420px,44%)_1fr] lg:grid-rows-1">
+    <main className="mx-auto grid min-h-dvh max-w-[1600px] grid-rows-[auto_minmax(340px,1fr)] border-x border-[var(--hairline)] pt-14 lg:h-dvh lg:grid-cols-[minmax(420px,44%)_1fr] lg:grid-rows-1">
       <section className="lg:min-h-0 lg:overflow-y-auto">
         <CapturePanel
           running={detector.running}
@@ -68,7 +68,7 @@ export default function Home() {
         {detector.error && (
           <motion.p
             role="alert"
-            className="material fixed inset-x-4 top-4 z-50 mx-auto max-w-md rounded-2xl px-4 py-3 text-center text-[13px] text-[var(--color-mixed)]"
+            className="material fixed inset-x-4 top-16 z-50 mx-auto max-w-md px-4 py-3 text-center text-[13px] text-[var(--color-mixed)]"
             initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}

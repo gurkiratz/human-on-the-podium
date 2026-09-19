@@ -54,7 +54,7 @@ export function TranscriptPanel(props: Props) {
   const empty = tokens.length === 0 && !props.pendingText && !props.partial;
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-black">
+    <div className="flex h-full min-h-0 flex-col bg-[#080908]">
       <div className="shrink-0 border-b border-[var(--hairline)] px-6 py-5 lg:px-9">
         <VerdictBadge detection={latest} />
       </div>
@@ -63,7 +63,7 @@ export function TranscriptPanel(props: Props) {
         {empty ? (
           <p className="title max-w-[28ch] text-[26px] font-semibold text-[var(--faint)]">
             {props.running
-              ? "Say something. Scoring starts once you have talked for a bit."
+              ? "Say something. Analysis starts once you have talked for a bit."
               : "Hit the big red button and start talking."}
           </p>
         ) : (
@@ -86,16 +86,16 @@ export function TranscriptPanel(props: Props) {
         <div className="flex items-center justify-between gap-4 text-[11px] text-[var(--faint)]">
           <span className="tabular-nums">
             {props.scoring
-              ? "Scoring…"
+              ? "Analyzing…"
               : `${props.pendingWords} / ${CHUNK_TARGET_WORDS} words to next check`}
           </span>
           <span className="tabular-nums">
             {props.detections.length} checks · {props.wordsSent} words billed
           </span>
         </div>
-        <div className="mt-2 h-[3px] overflow-hidden rounded-full bg-white/10">
+        <div className="mt-2 h-[3px] overflow-hidden bg-white/10">
           <motion.div
-            className="h-full rounded-full bg-white/70"
+            className="h-full bg-white/70"
             initial={{ scaleX: 0 }}
             animate={{ scaleX: progress }}
             style={{ transformOrigin: "left" }}

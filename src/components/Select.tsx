@@ -14,12 +14,12 @@ export function Select({ label, value, onChange, options, disabled }: Props) {
       <span className="caps mb-1.5 block text-[10px] font-semibold text-[var(--faint)]">
         {label}
       </span>
-      <div className="material relative min-w-0 rounded-xl">
+      <div className="relative min-w-0 border border-[var(--hairline)] bg-white/4">
         <select
           value={value}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full min-w-0 appearance-none truncate rounded-xl bg-transparent py-2.5 pl-3 pr-9 text-[13px] text-[var(--color-chalk)] outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:opacity-45"
+          className="w-full min-w-0 appearance-none truncate bg-transparent py-2.5 pl-3 pr-9 text-[13px] text-[var(--color-chalk)] outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:opacity-45"
         >
           {options.length === 0 && <option value="">None available</option>}
           {options.map((o) => (

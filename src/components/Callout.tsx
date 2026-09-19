@@ -44,7 +44,7 @@ export function Callout({
           style={{ transformOrigin: "bottom center" }}
         >
           <div
-            className="material max-w-[46ch] rounded-3xl px-6 py-5 text-center"
+            className="material max-w-[46ch] px-6 py-5 text-center"
             style={{
               borderColor: VERDICT_COLOR[callout.verdict],
               boxShadow: `0 30px 90px -30px ${VERDICT_COLOR[callout.verdict]}`,

@@ -69,7 +69,7 @@ export function VerdictBadge({ detection }: { detection: Detection | null }) {
           return (
             <span
               key={k}
-              className="rounded-full px-2.5 py-1 text-[12px] font-semibold tabular-nums"
+              className="px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.04em] tabular-nums"
               style={{
                 border: `1px solid ${on ? VERDICT_COLOR[k] : "var(--hairline)"}`,
                 color: on ? VERDICT_COLOR[k] : "var(--faint)",

@@ -105,63 +105,74 @@ export default function YoutubePage() {
   const previewStart = active ? active.startSec : draftStart;
 
   return (
-    <main className="min-h-dvh bg-[var(--color-ink)] pt-16">
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 pb-16 lg:grid-cols-[340px_1fr]">
-        <section className="space-y-5">
-          <header>
-            <p className="caps text-[10px] font-semibold text-[var(--faint)]">
-              Segment scorer
-            </p>
-            <h1 className="title mt-1 text-[28px] font-bold tracking-tight">
-              YouTube → 60s
-            </h1>
-            <p className="mt-2 text-[13px] leading-relaxed text-[var(--muted)]">
-              Paste a link, pick a start time, score one minute. Up to{" "}
-              {MAX_YOUTUBE_JOBS} videos at once.
-            </p>
-          </header>
+    <main className="min-h-dvh bg-[#111210] pt-14">
+      <div className="mx-auto max-w-6xl px-5 pb-16 sm:px-8">
+        <header className="border-b border-[var(--hairline)] py-10 sm:py-12">
+          <p className="caps text-[10px] font-semibold text-[var(--faint)]">
+            Speech analysis
+          </p>
+          <h1 className="display mt-3 text-[clamp(2.5rem,6vw,4.5rem)] font-semibold">
+            Analyze an MP&apos;s speech
+          </h1>
+          <p className="mt-4 max-w-xl text-[15px] leading-6 text-[var(--muted)]">
+            Choose a 60-second excerpt from a political speech or talk and
+            inspect its verdict, confidence, transcript, and sentence-level
+            evidence.
+          </p>
+        </header>
 
-          <div className="space-y-3">
-            <label className="block">
-              <span className="caps mb-1.5 block text-[10px] font-semibold text-[var(--faint)]">
-                YouTube URL
-              </span>
-              <input
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://www.youtube.com/watch?v=…"
-                className="material w-full rounded-xl px-3 py-2.5 text-[13px] outline-none placeholder:text-[var(--faint)] focus-visible:ring-2 focus-visible:ring-white/60"
-              />
-            </label>
-            <label className="block">
-              <span className="caps mb-1.5 block text-[10px] font-semibold text-[var(--faint)]">
-                Start (m:ss)
-              </span>
-              <input
-                value={startRaw}
-                onChange={(e) => setStartRaw(e.target.value)}
-                placeholder="0:00"
-                className="material w-full rounded-xl px-3 py-2.5 text-[13px] outline-none placeholder:text-[var(--faint)] focus-visible:ring-2 focus-visible:ring-white/60"
-              />
-            </label>
-            <button
-              type="button"
-              disabled={!canAdd}
-              onClick={() => void submit()}
-              className="w-full rounded-full bg-[var(--color-chalk)] py-3 text-[14px] font-semibold text-[var(--color-ink)] transition enabled:active:scale-[0.98] disabled:opacity-40"
-            >
-              {running > 0
-                ? `Score · ${running}/${MAX_YOUTUBE_JOBS} running`
-                : "Score minute"}
-            </button>
-          </div>
+        <div className="grid gap-10 py-10 lg:grid-cols-[340px_1fr] lg:gap-12">
+          <section className="space-y-7">
+            <div>
+              <p className="caps mb-4 text-[10px] font-semibold text-[var(--faint)]">
+                New analysis
+              </p>
+
+              <div className="space-y-4">
+                <label className="block">
+                  <span className="caps mb-2 block text-[10px] font-semibold text-[var(--faint)]">
+                    Speech link
+                  </span>
+                  <input
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    placeholder="Paste the speech URL"
+                    className="w-full border border-[var(--hairline)] bg-black/25 px-3.5 py-3 text-[13px] outline-none placeholder:text-[var(--faint)] focus-visible:border-white/55"
+                  />
+                </label>
+                <label className="block">
+                  <span className="caps mb-2 block text-[10px] font-semibold text-[var(--faint)]">
+                    Start time
+                  </span>
+                  <input
+                    value={startRaw}
+                    onChange={(e) => setStartRaw(e.target.value)}
+                    placeholder="0:00"
+                    className="w-full border border-[var(--hairline)] bg-black/25 px-3.5 py-3 text-[13px] outline-none placeholder:text-[var(--faint)] focus-visible:border-white/55"
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={!canAdd}
+                  onClick={() => void submit()}
+                  className="w-full bg-[#e04420] py-3 text-[13px] font-semibold text-white transition-colors enabled:hover:bg-[#bd3517] enabled:active:bg-[#bd3517] disabled:opacity-40"
+                >
+                  {running > 0
+                    ? `Analyze · ${running}/${MAX_YOUTUBE_JOBS} running`
+                    : "Analyze minute"}
+                </button>
+                <p className="text-[11px] leading-5 text-[var(--faint)]">
+                  Run up to {MAX_YOUTUBE_JOBS} analyses at once.
+                </p>
+              </div>
+            </div>
 
           {jobs.length > 0 && (
             <ul className="space-y-2">
               {jobs.map((j) => (
                 <li
                   key={j.key}
-                  className="material rounded-2xl px-3 py-2.5 text-[12px]"
+                  className="border border-[var(--hairline)] bg-white/4 px-3 py-2.5 text-[12px]"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate text-[var(--muted)]">{j.url}</span>
@@ -177,7 +188,7 @@ export default function YoutubePage() {
                     }`}
                   >
                     {j.status === "running"
-                      ? "Extracting · transcribing · scoring…"
+                      ? "Extracting · transcribing · analyzing…"
                       : j.error}
                   </p>
                 </li>
@@ -185,11 +196,11 @@ export default function YoutubePage() {
             </ul>
           )}
 
-          <div>
-            <p className="caps mb-2 text-[10px] font-semibold text-[var(--faint)]">
+          <div className="border-t border-[var(--hairline)] pt-6">
+            <p className="caps mb-3 text-[10px] font-semibold text-[var(--faint)]">
               Saved
             </p>
-            <ul className="max-h-[40vh] space-y-1 overflow-y-auto hide-scrollbar">
+            <ul className="max-h-[40vh] divide-y divide-white/8 overflow-y-auto border-y border-white/8 hide-scrollbar">
               {results.map((r) => {
                 const on = active?.id === r.id;
                 return (
@@ -197,8 +208,10 @@ export default function YoutubePage() {
                     <button
                       type="button"
                       onClick={() => setSelected(r.id)}
-                      className={`w-full rounded-xl px-3 py-2.5 text-left transition ${
-                        on ? "bg-white/10" : "hover:bg-white/5"
+                      className={`w-full border-l-2 px-3 py-3 text-left transition ${
+                        on
+                          ? "border-[#e04420] bg-white/8"
+                          : "border-transparent hover:bg-white/4"
                       }`}
                     >
                       <div className="flex items-baseline justify-between gap-2">
@@ -222,14 +235,14 @@ export default function YoutubePage() {
               })}
               {results.length === 0 && (
                 <li className="px-1 text-[13px] text-[var(--faint)]">
-                  No scores yet.
+                  No analyses yet.
                 </li>
               )}
             </ul>
           </div>
-        </section>
+          </section>
 
-        <section className="min-h-[60vh] rounded-[28px] border border-[var(--hairline)] bg-[var(--color-void)] p-5 sm:p-7">
+          <section className="min-h-[60vh] border border-[var(--hairline)] bg-[var(--color-void)] p-5 sm:p-7">
           {!active ? (
             previewUrl ? (
               <div className="space-y-3">
@@ -238,12 +251,13 @@ export default function YoutubePage() {
                 </p>
                 <YoutubePreview url={previewUrl} startSec={previewStart} />
                 <p className="text-[13px] text-[var(--faint)]">
-                  Score a segment to see verdict and transcript.
+                  Analyze an excerpt to see its verdict and transcript.
                 </p>
               </div>
             ) : (
               <p className="text-[14px] text-[var(--faint)]">
-                Paste a YouTube link to preview, then score a 60s segment.
+                Paste a speech link to preview, then analyze a 60-second
+                excerpt.
               </p>
             )
           ) : (
@@ -263,7 +277,7 @@ export default function YoutubePage() {
                   rel="noreferrer"
                   className="mt-1 inline-block text-[12px] text-[var(--faint)] underline-offset-2 hover:underline"
                 >
-                  Open on YouTube
+                  Open source
                 </a>
               </div>
 
@@ -278,14 +292,15 @@ export default function YoutubePage() {
               />
             </div>
           )}
-        </section>
+          </section>
+        </div>
       </div>
 
       <AnimatePresence>
         {error && (
           <motion.p
             role="alert"
-            className="material fixed inset-x-4 bottom-4 z-50 mx-auto max-w-md rounded-2xl px-4 py-3 text-center text-[13px] text-[var(--color-mixed)]"
+            className="material fixed inset-x-4 bottom-4 z-50 mx-auto max-w-md px-4 py-3 text-center text-[13px] text-[var(--color-mixed)]"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 12 }}
