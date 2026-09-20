@@ -1,0 +1,27 @@
+[
+  {
+    "name": "economic statistics among rhetoric",
+    "text": "Thank you all for coming out tonight. Unemployment fell to 3.5 percent last month, and that is a fact. We will make this country great again. Our policy created two million new jobs since I took office. The crowd here is incredible and the energy is amazing. God bless you all.",
+    "expectedCheckable": 2,
+    "expected": [
+      { "contains": "Unemployment fell to 3.5 percent", "checkable": true },
+      { "contains": "make this country great again", "checkable": false },
+      { "contains": "two million new jobs", "checkable": true }
+    ]
+  },
+  {
+    "name": "attribution, opinion and a number",
+    "text": "I want to thank everybody for being here. Experts say the border is the worst it has ever been. I believe we have the greatest economy in history. Studies show crime is up 40 percent in the city. Nobody has ever seen anything like it. Thank you, thank you very much.",
+    "expectedCheckable": 1,
+    "expected": [
+      { "contains": "greatest economy in history", "checkable": false },
+      { "contains": "crime is up 40 percent", "checkable": true }
+    ]
+  },
+  {
+    "name": "pure rhetoric, no checkable claims",
+    "text": "God bless this nation. We stand together, united, in hope. They said it could not be done, but we did it. Thank you all for being here tonight. It is an honour to be with you all. God bless America.",
+    "expectedCheckable": 0,
+    "expected": []
+  }
+]

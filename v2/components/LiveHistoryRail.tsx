@@ -1,0 +1,136 @@
+"use client";
+
+import { PanelLeftClose, Plus } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Loader } from "@/components/ui/loader";
+import { cn } from "@/lib/utils";
+import type { LiveSessionSummary } from "@/lib/live";
+
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (!then) return "";
+  const minutes = Math.round((Date.now() - then) / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+export function LiveHistoryRail({
+  activeId,
+  selectedId,
+  refreshKey,
+  onNew,
+  onSelect,
+  onCollapse,
+}: {
+  /** The session currently capturing, if any. */
+  activeId: string | null;
+  /** The session open in the viewer, if any. */
+  selectedId: string | null;
+  refreshKey: number;
+  onNew: () => void;
+  onSelect: (id: string) => void;
+  onCollapse: () => void;
+}) {
+  const [items, setItems] = useState<LiveSessionSummary[] | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const response = await fetch("/api/live", { cache: "no-store" });
+      const data = response.ok
+        ? ((await response.json()) as { items: LiveSessionSummary[] })
+        : { items: [] };
+      setItems(data.items);
+    } catch {
+      setItems([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load, refreshKey]);
+
+  return (
+    <div className="flex h-full w-[264px] flex-col">
+      <div className="flex items-center justify-between px-3 py-2.5">
+        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          Live sessions
+        </span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7 text-muted-foreground hover:text-foreground"
+          onClick={onCollapse}
+          aria-label="Hide sessions"
+        >
+          <PanelLeftClose className="size-4" />
+        </Button>
+      </div>
+
+      <div className="px-3 pb-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full justify-start gap-2 border-border/70"
+          onClick={onNew}
+        >
+          <Plus className="size-3.5" />
+          New session
+        </Button>
+      </div>
+
+      <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+        {items === null ? (
+          <div className="flex justify-center py-6">
+            <Loader variant="dots" size="sm" />
+          </div>
+        ) : items.length === 0 ? (
+          <p className="px-2 py-6 text-center text-xs leading-relaxed text-muted-foreground">
+            No live sessions yet. Start recording and it saves itself.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-0.5">
+            {items.map((item) => {
+              const selected = item.id === selectedId;
+              const live = item.id === activeId;
+              return (
+                <li key={item.id}>
+                  <button
+                    onClick={() => onSelect(item.id)}
+                    aria-current={selected}
+                    className={cn(
+                      "flex w-full flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-accent",
+                      selected && "bg-accent",
+                    )}
+                  >
+                    <span className="flex w-full items-center gap-1.5">
+                      {live ? (
+                        <span
+                          className="size-1.5 shrink-0 rounded-full bg-destructive"
+                          aria-label="Session in progress"
+                        />
+                      ) : null}
+                      <span className="line-clamp-2 min-w-0 flex-1 text-[12.5px] font-medium text-foreground">
+                        {item.title}
+                      </span>
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {relativeTime(item.updatedAt)} · {item.threadCount}{" "}
+                      {item.threadCount === 1 ? "thread" : "threads"} ·{" "}
+                      {item.words.toLocaleString()} words
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
