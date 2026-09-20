@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { chunkAiShare } from "./ai-share";
 import { CHUNK_TARGET_WORDS, STOP_FLUSH_WORDS, TranscriptChunker } from "./chunker";
 import { VOICE_FEEDBACK } from "./constants";
 import { pickLine, type Line } from "./roast";
@@ -73,6 +74,30 @@ export function useDetector(voiceId: string) {
     voiceIdRef.current = voiceId;
   }, [voiceId]);
 
+  /**
+   * Push a chunk's AI share to the badge on the LAN, via the server (the badge
+   * speaks plain HTTP with no CORS headers). The badge holds the verdict for
+   * five seconds and then goes back to idle on its own; a chunk landing inside
+   * that window replaces it. Never awaited and never throws — the badge is
+   * decoration, not part of the detection path.
+   */
+  const pushToBadge = useCallback((share: number) => {
+    void fetch("/api/badge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "show", share }),
+    }).catch(() => {});
+  }, []);
+
+  /** Put the badge back to its waiting face: no number, yellow ring. */
+  const resetBadge = useCallback(() => {
+    void fetch("/api/badge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reset" }),
+    }).catch(() => {});
+  }, []);
+
   const say = useCallback(async (verdict: Verdict, line: Line) => {
     if (!VOICE_FEEDBACK) return;
     lastLineRef.current = line.speech;
@@ -116,6 +141,7 @@ export function useDetector(voiceId: string) {
         }
         const detection = (await res.json()) as Detection;
         setDetections((prev) => [...prev, detection]);
+        pushToBadge(chunkAiShare(detection));
 
         if (!VOICE_FEEDBACK) return;
 
@@ -136,7 +162,7 @@ export function useDetector(voiceId: string) {
         setScoring(false);
       }
     },
-    [say],
+    [say, pushToBadge],
   );
 
   /** Plays one roast line so the voice can be auditioned before a session. */
@@ -314,7 +340,10 @@ export function useDetector(voiceId: string) {
     savedRef.current = "";
     sessionIdRef.current = null;
     setSessionId(null);
-  }, []);
+    // Clearing the screen clears the badge too, rather than leaving the last
+    // chunk's number sitting on it.
+    resetBadge();
+  }, [resetBadge]);
 
   // Pause flush: if the speaker has gone quiet with enough words banked, score
   // them rather than leaving them unscored until they start talking again.
