@@ -115,14 +115,21 @@ export function useCamera(enabled: boolean, deviceId: string): CameraState {
       return false;
     }
 
-    const gen = ++genRef.current;
     const id = deviceIdRef.current;
+    const liveId = streamRef.current?.getVideoTracks()[0]?.getSettings().deviceId;
+    if (streamRef.current && (!id || liveId === id) && enabledRef.current) {
+      return true;
+    }
+
+    const gen = ++genRef.current;
+    // Release FaceTime before asking for another cam. Leaving the old track
+    // live makes Chrome/Safari keep the Mac camera even with `exact`.
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
 
     try {
       const next = await navigator.mediaDevices.getUserMedia({
-        // `ideal` avoids OverconstrainedError when the listed device id is
-        // stale or empty before permissions unlock real labels.
-        video: id ? { deviceId: { ideal: id } } : true,
+        video: id ? { deviceId: { exact: id } } : true,
         audio: false,
       });
       // Newer request won, or the user turned the camera off mid-prompt.
@@ -168,13 +175,7 @@ export function useCamera(enabled: boolean, deviceId: string): CameraState {
     }
 
     void acquire();
-  }, [enabled, acquire, replaceStream]);
-
-  // Switch the live preview when the user picks a different camera.
-  useEffect(() => {
-    if (!enabled || !streamRef.current) return;
-    void acquire();
-  }, [deviceId, enabled, acquire]);
+  }, [enabled, deviceId, acquire, replaceStream]);
 
   useEffect(() => {
     return () => {

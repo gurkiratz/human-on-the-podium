@@ -1,14 +1,19 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import { VERDICT_COLOR, VERDICT_LABEL } from "@/components/VerdictBadge";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { YoutubePreview } from "@/components/YoutubePreview";
 import { ScoreReport } from "@/components/ScoreReport";
+import { AiMeter, BandLegend } from "@/components/ai-scale";
 import { MAX_YOUTUBE_JOBS } from "@/lib/constants";
 import type { YoutubeScore } from "@/lib/types";
-import { parseYoutubeId } from "@/lib/youtube-id";
+import {
+  parseCpacId,
+  parseRecordingId,
+  parseYoutubeId,
+} from "@/lib/youtube-id";
 import { isThin } from "@/lib/chunker";
+import { formatDay, formatDuration } from "@/lib/time-format";
 
 type Job = {
   key: string;
@@ -17,6 +22,12 @@ type Job = {
   status: "running" | "error";
   error?: string;
 };
+
+const STEPS = [
+  "Paste a link to a speech or talk — YouTube or CPAC.",
+  "Set the minute you want read.",
+  "We pull that audio, transcribe it, and check the words.",
+];
 
 function formatStart(sec: number) {
   const m = Math.floor(sec / 60);
@@ -34,7 +45,40 @@ function parseStartInput(raw: string): number {
   return Math.max(0, Math.floor(Number(t) || 0));
 }
 
-export default function YoutubePage() {
+function Note({ children }: { children: React.ReactNode }) {
+  return (
+    <p
+      className="rounded-[var(--r-sm)] border px-3 py-2.5 text-[12px] leading-5"
+      style={{
+        background: "var(--note-bg)",
+        borderColor: "var(--note-line)",
+        color: "var(--note-ink)",
+      }}
+    >
+      {children}
+    </p>
+  );
+}
+
+function NoteAction({
+  onClick,
+  children,
+}: {
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="focus-ring rounded-[3px] font-semibold underline underline-offset-2"
+    >
+      {children}
+    </button>
+  );
+}
+
+export default function AnalyzePage() {
   const [url, setUrl] = useState("");
   const [startRaw, setStartRaw] = useState("0:00");
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -42,6 +86,7 @@ export default function YoutubePage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const reduced = useReducedMotion();
 
   const load = () => {
     startTransition(async () => {
@@ -57,6 +102,13 @@ export default function YoutubePage() {
   useEffect(() => {
     load();
   }, []);
+
+  // The toast is a status message, not a dialog — it should clear itself.
+  useEffect(() => {
+    if (!error) return;
+    const t = setTimeout(() => setError(null), 7000);
+    return () => clearTimeout(t);
+  }, [error]);
 
   const running = jobs.filter((j) => j.status === "running").length;
   const canAdd = running < MAX_YOUTUBE_JOBS && url.trim().length > 0;
@@ -90,8 +142,8 @@ export default function YoutubePage() {
       const message = err instanceof Error ? err.message : "Failed";
       setJobs((prev) =>
         prev.map((j) =>
-          j.key === key ? { ...j, status: "error", error: message } : j,
-        ),
+          j.key === key ? { ...j, status: "error", error: message } : j
+        )
       );
       setError(message);
     }
@@ -99,217 +151,302 @@ export default function YoutubePage() {
 
   const active = results.find((r) => r.id === selected) ?? results[0] ?? null;
   const draftStart = parseStartInput(startRaw);
-  const draftPreviewUrl =
-    parseYoutubeId(url) && url.trim() ? url.trim() : null;
-  const previewUrl = active?.youtubeUrl ?? draftPreviewUrl;
+
+  // An excerpt is a recording *and* a minute. Matching on the link alone would
+  // flag every later minute of the same speech as a duplicate.
+  const draftId = parseRecordingId(url);
+  // CPAC files episodes under a UUID, which can come back in either case.
+  const loose = !!parseCpacId(url);
+  const sameRecording = draftId
+    ? results.filter((r) =>
+        loose
+          ? r.videoId.toLowerCase() === draftId.toLowerCase()
+          : r.videoId === draftId
+      )
+    : [];
+  const alreadyDone = sameRecording.find((r) => r.startSec === draftStart);
+  const otherMinutes = sameRecording
+    .filter((r) => r.startSec !== draftStart)
+    .sort((a, b) => a.startSec - b.startSec);
+
+  const open = (id: string) => {
+    setSelected(id);
+    document.getElementById("result")?.scrollIntoView({
+      behavior: reduced ? "auto" : "smooth",
+      block: "start",
+    });
+  };
+
+  const sourceUrl = active?.youtubeUrl ?? url.trim();
+  const previewUrl = parseYoutubeId(sourceUrl) ? sourceUrl : null;
   const previewStart = active ? active.startSec : draftStart;
 
   return (
-    <main className="min-h-dvh bg-[#111210] pt-14">
-      <div className="mx-auto max-w-6xl px-5 pb-16 sm:px-8">
-        <header className="border-b border-[var(--hairline)] py-10 sm:py-12">
-          <p className="caps text-[10px] font-semibold text-[var(--faint)]">
-            Speech analysis
-          </p>
-          <h1 className="display mt-3 text-[clamp(2.5rem,6vw,4.5rem)] font-semibold">
-            Analyze an MP&apos;s speech
+    <main className="pt-14">
+      <div className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
+        <header className="py-9 sm:py-12">
+          <p className="paper-label">Speech analysis</p>
+          <h1 className="paper-display mt-3.5 text-[clamp(2rem,4vw,3rem)]">
+            Analyze a speech
           </h1>
-          <p className="mt-4 max-w-xl text-[15px] leading-6 text-[var(--muted)]">
-            Choose a 60-second excerpt from a political speech or talk and
-            inspect its verdict, confidence, transcript, and sentence-level
-            evidence.
+          <p className="mt-4 max-w-2xl text-[16px] leading-7 text-[var(--muted-ink)]">
+            Pick a sixty-second excerpt from a speech or talk by an MP. We pull
+            the audio, transcribe it, and show how much of it reads as
+            machine-written — with the sentence-level evidence behind it.
           </p>
+          <BandLegend className="mt-5" />
         </header>
 
-        <div className="grid gap-10 py-10 lg:grid-cols-[340px_1fr] lg:gap-12">
-          <section className="space-y-7">
-            <div>
-              <p className="caps mb-4 text-[10px] font-semibold text-[var(--faint)]">
-                New analysis
-              </p>
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(290px,330px)_1fr]">
+          <section className="paper-card overflow-hidden lg:sticky lg:top-[76px]">
+            <div className="p-4 sm:p-5">
+              <p className="paper-label">New analysis</p>
 
-              <div className="space-y-4">
+              <div className="mt-4 space-y-3.5">
                 <label className="block">
-                  <span className="caps mb-2 block text-[10px] font-semibold text-[var(--faint)]">
-                    Speech link
+                  <span className="mb-1.5 block text-[12px] text-[var(--muted-ink)]">
+                    Source link
                   </span>
                   <input
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
-                    placeholder="Paste the speech URL"
-                    className="w-full border border-[var(--hairline)] bg-black/25 px-3.5 py-3 text-[13px] outline-none placeholder:text-[var(--faint)] focus-visible:border-white/55"
+                    placeholder="YouTube or CPAC URL"
+                    inputMode="url"
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="field px-3 py-2.5 text-[13px]"
                   />
                 </label>
                 <label className="block">
-                  <span className="caps mb-2 block text-[10px] font-semibold text-[var(--faint)]">
+                  <span className="mb-1.5 block text-[12px] text-[var(--muted-ink)]">
                     Start time
                   </span>
                   <input
                     value={startRaw}
                     onChange={(e) => setStartRaw(e.target.value)}
                     placeholder="0:00"
-                    className="w-full border border-[var(--hairline)] bg-black/25 px-3.5 py-3 text-[13px] outline-none placeholder:text-[var(--faint)] focus-visible:border-white/55"
+                    inputMode="numeric"
+                    className="field px-3 py-2.5 text-[13px] tabular-nums"
                   />
                 </label>
+                {alreadyDone ? (
+                  <Note>
+                    <strong className="font-semibold">Already analyzed.</strong>{" "}
+                    This minute is on file.{" "}
+                    <NoteAction onClick={() => open(alreadyDone.id)}>
+                      Open it
+                    </NoteAction>
+                  </Note>
+                ) : otherMinutes.length > 0 ? (
+                  <Note>
+                    This recording is already on file at{" "}
+                    {otherMinutes.map((r, i) => (
+                      <span key={r.id}>
+                        {i > 0 && ", "}
+                        <NoteAction onClick={() => open(r.id)}>
+                          {formatStart(r.startSec)}
+                        </NoteAction>
+                      </span>
+                    ))}
+                    . This minute is new.
+                  </Note>
+                ) : null}
+
                 <button
                   type="button"
                   disabled={!canAdd}
                   onClick={() => void submit()}
-                  className="w-full bg-[#e04420] py-3 text-[13px] font-semibold text-white transition-colors enabled:hover:bg-[#bd3517] enabled:active:bg-[#bd3517] disabled:opacity-40"
+                  className="press focus-ring w-full rounded-[var(--r-sm)] bg-[var(--accent)] py-2.5 text-[13px] font-semibold text-white enabled:hover:bg-[var(--accent-press)] disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  {alreadyDone ? "Analyze it again" : "Analyze this minute"}
+                </button>
+                <p
+                  className="text-[11px] leading-5 text-[var(--faint-ink)]"
+                  aria-live="polite"
                 >
                   {running > 0
-                    ? `Analyze · ${running}/${MAX_YOUTUBE_JOBS} running`
-                    : "Analyze minute"}
-                </button>
-                <p className="text-[11px] leading-5 text-[var(--faint)]">
-                  Run up to {MAX_YOUTUBE_JOBS} analyses at once.
+                    ? `${running} of ${MAX_YOUTUBE_JOBS} running.`
+                    : `Up to ${MAX_YOUTUBE_JOBS} at once.`}
                 </p>
               </div>
             </div>
 
-          {jobs.length > 0 && (
-            <ul className="space-y-2">
-              {jobs.map((j) => (
-                <li
-                  key={j.key}
-                  className="border border-[var(--hairline)] bg-white/4 px-3 py-2.5 text-[12px]"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-[var(--muted)]">{j.url}</span>
-                    <span className="shrink-0 tabular-nums text-[var(--faint)]">
-                      @{formatStart(j.startSec)}
-                    </span>
-                  </div>
-                  <p
-                    className={`mt-1 ${
-                      j.status === "error"
-                        ? "text-[var(--color-ai)]"
-                        : "text-[var(--faint)]"
-                    }`}
-                  >
-                    {j.status === "running"
-                      ? "Extracting · transcribing · analyzing…"
-                      : j.error}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <div className="border-t border-[var(--hairline)] pt-6">
-            <p className="caps mb-3 text-[10px] font-semibold text-[var(--faint)]">
-              Saved
-            </p>
-            <ul className="max-h-[40vh] divide-y divide-white/8 overflow-y-auto border-y border-white/8 hide-scrollbar">
-              {results.map((r) => {
-                const on = active?.id === r.id;
-                return (
-                  <li key={r.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelected(r.id)}
-                      className={`w-full border-l-2 px-3 py-3 text-left transition ${
-                        on
-                          ? "border-[#e04420] bg-white/8"
-                          : "border-transparent hover:bg-white/4"
-                      }`}
-                    >
+            {jobs.length > 0 && (
+              <div className="paper-divider px-4 py-4 sm:px-5">
+                <p className="paper-label">In progress</p>
+                <ul className="mt-3 space-y-3">
+                  {jobs.map((j) => (
+                    <li key={j.key} className="text-[12px]">
                       <div className="flex items-baseline justify-between gap-2">
-                        <span className="truncate text-[13px] font-medium">
-                          {r.title ?? r.videoId}
+                        <span className="truncate text-[var(--muted-ink)]">
+                          {j.url}
                         </span>
-                        <span
-                          className="shrink-0 text-[12px] font-semibold"
-                          style={{ color: VERDICT_COLOR[r.verdict] }}
-                        >
-                          {VERDICT_LABEL[r.verdict]}
+                        <span className="shrink-0 tabular-nums text-[var(--faint-ink)]">
+                          @{formatStart(j.startSec)}
                         </span>
                       </div>
-                      <p className="mt-0.5 text-[11px] text-[var(--faint)]">
-                        @{formatStart(r.startSec)} ·{" "}
-                        {Math.round(r.probability * 100)}% · {r.confidence}
-                      </p>
-                    </button>
-                  </li>
-                );
-              })}
-              {results.length === 0 && (
-                <li className="px-1 text-[13px] text-[var(--faint)]">
-                  No analyses yet.
-                </li>
-              )}
-            </ul>
-          </div>
+                      {j.status === "running" ? (
+                        <>
+                          <div className="working mt-2 h-[3px] w-full" />
+                          <p className="mt-1.5 text-[var(--faint-ink)]">
+                            Extracting, transcribing, analyzing…
+                          </p>
+                        </>
+                      ) : (
+                        <p className="mt-1.5 text-[var(--stamp-ai)]">
+                          {j.error}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="paper-divider px-4 pb-2 pt-4 sm:px-5">
+              <p className="paper-label">Saved</p>
+            </div>
+            {results.length === 0 ? (
+              <p className="px-4 pb-5 text-[13px] text-[var(--faint-ink)] sm:px-5">
+                Nothing analyzed yet.
+              </p>
+            ) : (
+              <ul className="max-h-[46vh] overflow-y-auto pb-2">
+                {results.map((r) => {
+                  const on = active?.id === r.id;
+                  return (
+                    <li key={r.id}>
+                      <button
+                        type="button"
+                        onClick={() => setSelected(r.id)}
+                        aria-current={on ? "true" : undefined}
+                        className={`press focus-ring flex w-full items-start gap-3 border-l-2 px-4 py-3 text-left sm:px-5 ${
+                          on
+                            ? "border-[var(--accent)] bg-[var(--paper-deep)]/60"
+                            : "border-transparent hover:bg-[var(--paper-deep)]/40"
+                        }`}
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[13px] font-medium">
+                            {r.title ?? r.videoId}
+                          </span>
+                          <span className="mt-0.5 block truncate text-[11px] text-[var(--faint-ink)]">
+                            {r.publishedAt !== null
+                              ? `${formatDay(r.publishedAt)} · @${formatStart(r.startSec)}`
+                              : `@${formatStart(r.startSec)} · ${r.words} words`}
+                          </span>
+                        </span>
+                        <AiMeter
+                          ai={r.probs.ai}
+                          showLabel={false}
+                          className="w-[62px] shrink-0"
+                        />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </section>
 
-          <section className="min-h-[60vh] border border-[var(--hairline)] bg-[var(--color-void)] p-5 sm:p-7">
-          {!active ? (
-            previewUrl ? (
-              <div className="space-y-3">
-                <p className="caps text-[10px] font-semibold text-[var(--faint)]">
-                  Preview
-                </p>
-                <YoutubePreview url={previewUrl} startSec={previewStart} />
-                <p className="text-[13px] text-[var(--faint)]">
-                  Analyze an excerpt to see its verdict and transcript.
-                </p>
+          <section id="result" className="paper-card scroll-mt-20 p-5 sm:p-7">
+            {!active ? (
+              <div className="space-y-6">
+                {previewUrl ? (
+                  <div className="paper-stage">
+                    <YoutubePreview url={previewUrl} startSec={previewStart} />
+                  </div>
+                ) : null}
+                <div className={previewUrl ? "" : "py-6"}>
+                  <h2 className="paper-heading text-[22px]">
+                    {previewUrl
+                      ? "Ready when you are"
+                      : "Start with a recording"}
+                  </h2>
+                  <ol className="mt-4 max-w-md space-y-3">
+                    {STEPS.map((step, i) => (
+                      <li
+                        key={step}
+                        className="flex gap-3 text-[14px] leading-6 text-[var(--muted-ink)]"
+                      >
+                        <span
+                          aria-hidden
+                          className="mt-[3px] grid size-[18px] shrink-0 place-items-center rounded-full bg-[var(--paper-deep)] text-[10px] font-semibold tabular-nums text-[var(--muted-ink)]"
+                        >
+                          {i + 1}
+                        </span>
+                        {step}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
               </div>
             ) : (
-              <p className="text-[14px] text-[var(--faint)]">
-                Paste a speech link to preview, then analyze a 60-second
-                excerpt.
-              </p>
-            )
-          ) : (
-            <div className="space-y-6">
-              <YoutubePreview
-                url={active.youtubeUrl}
-                startSec={active.startSec}
-              />
+              <motion.div
+                key={active.id}
+                initial={reduced ? false : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: "spring", bounce: 0, duration: 0.35 }}
+                className="space-y-6"
+              >
+                {parseYoutubeId(active.youtubeUrl) && (
+                  <div className="paper-stage">
+                    <YoutubePreview
+                      url={active.youtubeUrl}
+                      startSec={active.startSec}
+                    />
+                  </div>
+                )}
 
-              <div>
-                <p className="text-[13px] text-[var(--muted)]">
-                  {active.title} · start {formatStart(active.startSec)} · 60s
+                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                  <h2 className="paper-heading min-w-0 text-[20px]">
+                    {active.title ?? active.videoId}
+                  </h2>
+                  <a
+                    href={active.youtubeUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="focus-ring shrink-0 rounded-[4px] text-[13px] font-medium text-[var(--accent)] underline-offset-2 hover:underline"
+                  >
+                    Open source
+                  </a>
+                </div>
+                <p className="-mt-4 text-[13px] text-[var(--faint-ink)]">
+                  Sixty seconds from {formatStart(active.startSec)}
+                  {active.sourceDurationSec !== null &&
+                    ` of ${formatDuration(active.sourceDurationSec)}`}
+                  {active.publishedAt !== null
+                    ? ` · Recorded ${formatDay(active.publishedAt)}`
+                    : " · Recording date not published"}
                 </p>
-                <a
-                  href={active.youtubeUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-1 inline-block text-[12px] text-[var(--faint)] underline-offset-2 hover:underline"
-                >
-                  Open source
-                </a>
-              </div>
 
-              <ScoreReport
-                verdict={active.verdict}
-                probs={active.probs}
-                confidence={active.confidence}
-                sentences={active.sentences}
-                transcript={active.transcript}
-                words={active.words}
-                thin={isThin(active.words)}
-              />
-            </div>
-          )}
+                <ScoreReport
+                  verdict={active.verdict}
+                  probs={active.probs}
+                  confidence={active.confidence}
+                  sentences={active.sentences}
+                  transcript={active.transcript}
+                  words={active.words}
+                  thin={isThin(active.words)}
+                />
+              </motion.div>
+            )}
           </section>
         </div>
       </div>
 
       <AnimatePresence>
         {error && (
-          <motion.p
-            role="alert"
-            className="material fixed inset-x-4 bottom-4 z-50 mx-auto max-w-md px-4 py-3 text-center text-[13px] text-[var(--color-mixed)]"
-            initial={{ opacity: 0, y: 12 }}
+          <motion.div
+            role="status"
+            className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-md rounded-[var(--r-md)] bg-[#17181a] px-4 py-3 text-center text-[13px] text-white shadow-[0_12px_40px_-12px_rgba(0,0,0,0.5)]"
+            initial={reduced ? { opacity: 0 } : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 12 }}
-            onAnimationComplete={() => {
-              /* keep until next submit */
-            }}
+            exit={reduced ? { opacity: 0 } : { opacity: 0, y: 12 }}
+            transition={{ type: "spring", bounce: 0, duration: 0.3 }}
           >
             {error}
-          </motion.p>
+          </motion.div>
         )}
       </AnimatePresence>
     </main>

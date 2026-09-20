@@ -159,12 +159,9 @@ export function InvestigateArchive({ results }: { results: YoutubeScore[] }) {
           </div>
         </div>
 
-        <div className="grid gap-10 py-14 md:grid-cols-[1fr_1fr] md:gap-20">
+        <div className="grid gap-4 py-14">
           <div>
-            <p className="investigate-stamp text-[10px] text-[var(--faint-ink)]">
-              Methodology
-            </p>
-            <h2 className="investigate-punch mt-3 text-[clamp(2.2rem,5vw,3.4rem)]">
+            <h2 className="investigate-punch mt-3 text-4xl">
               About the project
             </h2>
           </div>

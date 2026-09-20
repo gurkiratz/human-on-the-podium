@@ -1,3 +1,5 @@
+const CPAC_ID = /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i;
+
 /** Client-safe YouTube ID parse (no Node deps). */
 export function parseYoutubeId(url: string): string | null {
   try {
@@ -21,4 +23,21 @@ export function parseYoutubeId(url: string): string | null {
     return null;
   }
   return null;
+}
+
+/** CPAC episode UUID from `?id=`. */
+export function parseCpacId(url: string): string | null {
+  try {
+    const u = new URL(url.trim());
+    if (!/(^|\.)cpac\.ca$/i.test(u.hostname)) return null;
+    const id = u.searchParams.get("id");
+    return id && CPAC_ID.test(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The id a recording is filed under, whichever source it came from. */
+export function parseRecordingId(url: string): string | null {
+  return parseYoutubeId(url) ?? parseCpacId(url);
 }

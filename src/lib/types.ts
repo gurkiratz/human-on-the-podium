@@ -1,5 +1,12 @@
 export type Verdict = "ai" | "human" | "mixed";
 
+/**
+ * What kind of source a record came from. Everything today is a recording we
+ * transcribe; `doc` is reserved for written sources, which are not supported
+ * yet — nothing reads or writes it but the column itself.
+ */
+export type SourceType = "video" | "doc";
+
 /** Document-level chance for each class (sums ~1). */
 export type ClassProbs = {
   ai: number;
@@ -50,11 +57,22 @@ export type PendingChunk = {
 /** Persisted YouTube 60s segment score. */
 export type YoutubeScore = {
   id: string;
+  sourceType: SourceType;
   youtubeUrl: string;
   videoId: string;
   title: string | null;
   startSec: number;
+  /** Length of the excerpt we analyzed (always 60s today). */
   durationSec: number;
+  /**
+   * When the speech was recorded, in ms. CPAC gives an airdate, YouTube an
+   * upload date. Null for rows filed before we captured it, and for sources
+   * that do not publish one — never inferred from `createdAt`, which is only
+   * when we ran the analysis.
+   */
+  publishedAt: number | null;
+  /** Full length of the source recording in seconds; null when unknown. */
+  sourceDurationSec: number | null;
   transcript: string;
   verdict: Verdict;
   probability: number;

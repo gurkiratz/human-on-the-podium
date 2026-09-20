@@ -18,6 +18,34 @@
   --hairline: rgba(255, 255, 255, 0.1);
   --muted: rgba(245, 245, 247, 0.55);
   --faint: rgba(245, 245, 247, 0.32);
+
+  /* Raised surfaces. Two steps only — more than that and a dark UI turns to mud. */
+  --raise-1: rgba(255, 255, 255, 0.035);
+  --raise-2: rgba(255, 255, 255, 0.07);
+  --hairline-strong: rgba(255, 255, 255, 0.2);
+
+  --accent: #e04420;
+  --accent-press: #bd3517;
+
+  /* One radius scale, so nothing is square next to something round by accident. */
+  --r-sm: 9px;
+  --r-md: 13px;
+  --r-lg: 18px;
+
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  /* The AI-share scale, shared with the archive table. Tuned for a dark ground;
+     .investigate-root overrides all five for paper. */
+  --band-1: #34c759;
+  --band-2: #a2d149;
+  --band-3: #ffd60a;
+  --band-4: #ff9f0a;
+  --band-5: #ff453a;
+
+  /* Informational blue — deliberately outside the verdict scale. */
+  --note-ink: #a9ccff;
+  --note-bg: rgba(88, 158, 255, 0.14);
+  --note-line: rgba(88, 158, 255, 0.32);
 }
 
 html,
@@ -82,5 +110,78 @@ body {
     --hairline: rgba(255, 255, 255, 0.4);
     --muted: rgba(245, 245, 247, 0.85);
     --faint: rgba(245, 245, 247, 0.65);
+  }
+}
+
+/* --- Surfaces, controls, feedback ------------------------------------- */
+
+.panel {
+  background: var(--card, var(--raise-1));
+  border: 1px solid var(--line, var(--hairline));
+  border-radius: var(--r-lg);
+}
+
+.field {
+  width: 100%;
+  background: var(--field-bg, rgba(0, 0, 0, 0.28));
+  border: 1px solid var(--line, var(--hairline));
+  border-radius: var(--r-sm);
+  color: inherit;
+  outline: none;
+  transition: border-color 140ms var(--ease-out), box-shadow 140ms var(--ease-out);
+}
+.field::placeholder {
+  color: var(--faint-ink, var(--faint));
+}
+.field:hover {
+  border-color: var(--line-strong, var(--hairline-strong));
+}
+.field:focus-visible {
+  border-color: rgba(224, 68, 32, 0.8);
+  box-shadow: 0 0 0 3px rgba(224, 68, 32, 0.22);
+}
+
+/* Feedback belongs on the press, and it has to be instant. */
+.press {
+  transition: transform 110ms var(--ease-out), background-color 140ms var(--ease-out);
+}
+.press:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid rgba(224, 68, 32, 0.85);
+  outline-offset: 2px;
+}
+
+/* Honest indeterminate progress: the work has no stages we can report on. */
+.working {
+  position: relative;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line, var(--hairline));
+}
+.working::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 38%;
+  border-radius: inherit;
+  background: var(--accent);
+  animation: working-drift 1.5s var(--ease-out) infinite;
+}
+@keyframes working-drift {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(370%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .press:active:not(:disabled) {
+    transform: none;
+  }
+  .working::after {
+    animation: none;
+    width: 100%;
+    opacity: 0.45;
   }
 }

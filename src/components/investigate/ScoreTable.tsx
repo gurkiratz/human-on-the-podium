@@ -17,11 +17,31 @@ import {
 import type { YoutubeScore } from "@/lib/types";
 import { SENTENCE_HUMAN_MAX } from "@/lib/constants";
 import { formatClock, formatWhen, pct, youtubeAt } from "./format";
+import { formatDay, formatDuration } from "@/lib/time-format";
+import {
+  AiMeter,
+  BandLegend,
+  CERTAINTY,
+  CERTAINTY_RANK,
+  CertaintyBars,
+  bandOf,
+} from "@/components/ai-scale";
 
 const STAMP: Record<YoutubeScore["verdict"], { bg: string; fg: string }> = {
   ai: { bg: "var(--stamp-ai)", fg: "#fff" },
   human: { bg: "var(--stamp-human)", fg: "#fff" },
   mixed: { bg: "var(--stamp-mixed)", fg: "#14110d" },
+};
+
+/** Fixed widths keep columns from re-flowing when a row expands. */
+const COLUMN_WIDTH: Record<string, string> = {
+  expand: "30px",
+  createdAt: "118px",
+  title: "auto",
+  aiShare: "168px",
+  confidence: "80px",
+  words: "64px",
+  source: "88px",
 };
 
 const archiveFilter: FilterFn<YoutubeScore> = (row, _id, value) => {
@@ -37,6 +57,8 @@ const archiveFilter: FilterFn<YoutubeScore> = (row, _id, value) => {
     r.youtubeUrl,
     r.verdict,
     r.confidence,
+    bandOf(r.probs.ai).label,
+    r.publishedAt !== null ? formatDay(r.publishedAt) : null,
     ...r.sentences.map((s) => s.sentence),
   ]
     .filter(Boolean)
@@ -75,7 +97,7 @@ export function ScoreTable({
 
   const columnFilters = useMemo<ColumnFiltersState>(
     () => (verdict === "all" ? [] : [{ id: "verdict", value: verdict }]),
-    [verdict],
+    [verdict]
   );
 
   const columns = useMemo(
@@ -96,7 +118,7 @@ export function ScoreTable({
         ),
       }),
       columnHelper.accessor("createdAt", {
-        header: "Logged",
+        header: "Analyzed",
         cell: (info) => (
           <span className="tabular-nums text-[13px] text-[var(--muted-ink)]">
             {formatWhen(info.getValue())}
@@ -107,31 +129,42 @@ export function ScoreTable({
         id: "title",
         header: "Recording",
         cell: ({ row }) => (
-          <div className="w-[260px] max-w-full">
+          <div className="min-w-0">
             <p className="line-clamp-2 break-words text-[15px] font-medium leading-snug">
               {row.original.title ?? row.original.videoId}
             </p>
-            <p className="truncate font-mono text-[11px] text-[var(--faint-ink)]">
-              {row.original.videoId}
-            </p>
+            {row.original.publishedAt !== null ? (
+              <p className="truncate text-[11px] text-[var(--faint-ink)]">
+                Recorded {formatDay(row.original.publishedAt)}
+                {row.original.sourceDurationSec !== null &&
+                  ` · ${formatDuration(row.original.sourceDurationSec)}`}
+              </p>
+            ) : (
+              <p className="truncate font-mono text-[11px] text-[var(--faint-ink)]">
+                {row.original.videoId}
+              </p>
+            )}
           </div>
         ),
       }),
+      // Kept only so the hero's verdict dropdown still has something to filter.
       columnHelper.accessor("verdict", {
-        header: "Call",
-        cell: (info) => <VerdictStamp verdict={info.getValue()} />,
+        id: "verdict",
         filterFn: (row, _id, value) => row.original.verdict === value,
       }),
-      columnHelper.accessor("probability", {
-        header: "Confidence",
+      columnHelper.accessor((r) => r.probs.ai, {
+        id: "aiShare",
+        header: "AI-ness",
         cell: ({ row }) => (
-          <span className="tabular-nums text-[13px]">
-            {pct(row.original.probability)}%
-            <span className="ml-1 text-[var(--faint-ink)]">
-              {row.original.confidence}
-            </span>
-          </span>
+          <AiMeter ai={row.original.probs.ai} className="w-full" />
         ),
+      }),
+      columnHelper.accessor("confidence", {
+        header: "Certainty",
+        cell: (info) => <CertaintyBars level={info.getValue()} />,
+        sortingFn: (a, b) =>
+          CERTAINTY_RANK[a.original.confidence] -
+          CERTAINTY_RANK[b.original.confidence],
       }),
       columnHelper.accessor("words", {
         header: "Words",
@@ -139,8 +172,18 @@ export function ScoreTable({
           <span className="tabular-nums text-[13px]">{info.getValue()}</span>
         ),
       }),
+      columnHelper.display({
+        id: "source",
+        header: "Source",
+        cell: ({ row }) => (
+          <SourceLink
+            url={row.original.youtubeUrl}
+            startSec={row.original.startSec}
+          />
+        ),
+      }),
     ],
-    [],
+    []
   );
 
   const table = useReactTable({
@@ -151,6 +194,7 @@ export function ScoreTable({
       expanded,
       globalFilter: query,
       columnFilters,
+      columnVisibility: { verdict: false },
     },
     onSortingChange: setSorting,
     onExpandedChange: setExpanded,
@@ -183,10 +227,13 @@ export function ScoreTable({
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-[13px] text-[var(--muted-ink)]">
-        {rows.length} record{rows.length === 1 ? "" : "s"}
-        {query.trim() || verdict !== "all" ? " after the filter" : " on file"}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+        <p className="text-[13px] text-[var(--muted-ink)]">
+          {rows.length} record{rows.length === 1 ? "" : "s"}
+          {query.trim() || verdict !== "all" ? " after the filter" : " on file"}
+        </p>
+        <BandLegend />
+      </div>
 
       <ul className="flex flex-col gap-3 md:hidden">
         {rows.map((row) => {
@@ -200,19 +247,23 @@ export function ScoreTable({
               <button
                 type="button"
                 onClick={row.getToggleExpandedHandler()}
-                className="flex w-full flex-col gap-2 px-4 py-3.5 text-left active:bg-[var(--paper)]"
+                className="flex w-full flex-col gap-2.5 px-4 py-3.5 text-left active:bg-[var(--paper)]"
               >
                 <div className="flex items-start justify-between gap-3">
                   <p className="min-w-0 text-[16px] font-medium leading-snug">
                     {r.title ?? r.videoId}
                   </p>
-                  <VerdictStamp verdict={r.verdict} />
+                  <CertaintyBars level={r.confidence} />
                 </div>
+                <AiMeter ai={r.probs.ai} className="w-full max-w-[220px]" />
                 <p className="text-[13px] text-[var(--muted-ink)]">
                   {formatWhen(r.createdAt)} · @{formatClock(r.startSec)} ·{" "}
-                  {pct(r.probability)}% {r.confidence} · {r.words} words
+                  {r.words} words
                 </p>
               </button>
+              <div className="px-4 pb-3">
+                <SourceLink url={r.youtubeUrl} startSec={r.startSec} />
+              </div>
               {open && <RecordDetail row={r} />}
             </li>
           );
@@ -220,10 +271,18 @@ export function ScoreTable({
       </ul>
 
       <div className="hidden overflow-x-auto border border-[var(--line)] bg-white md:block">
-        <table className="w-full min-w-[720px] border-collapse text-left">
+        <table className="w-full min-w-[720px] table-fixed border-collapse text-left">
+          <colgroup>
+            {table.getVisibleLeafColumns().map((col) => (
+              <col key={col.id} style={{ width: COLUMN_WIDTH[col.id] }} />
+            ))}
+          </colgroup>
           <thead>
             {table.getHeaderGroups().map((hg) => (
-              <tr key={hg.id} className="border-b border-[var(--line)] bg-[var(--paper-deep)]/50">
+              <tr
+                key={hg.id}
+                className="border-b border-[var(--line)] bg-[var(--paper-deep)]/50"
+              >
                 {hg.headers.map((header) => (
                   <th
                     key={header.id}
@@ -237,7 +296,7 @@ export function ScoreTable({
                       >
                         {flexRender(
                           header.column.columnDef.header,
-                          header.getContext(),
+                          header.getContext()
                         )}
                         <span className="text-[var(--faint-ink)]">
                           {{
@@ -249,7 +308,7 @@ export function ScoreTable({
                     ) : (
                       flexRender(
                         header.column.columnDef.header,
-                        header.getContext(),
+                        header.getContext()
                       )
                     )}
                   </th>
@@ -266,7 +325,10 @@ export function ScoreTable({
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className="px-3 py-3 align-middle">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
                     </td>
                   ))}
                 </tr>
@@ -286,22 +348,51 @@ export function ScoreTable({
   );
 }
 
+function SourceLink({ url, startSec }: { url: string; startSec: number }) {
+  return (
+    <a
+      href={youtubeAt(url, startSec)}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className="inline-flex items-center gap-1 text-[13px] font-medium text-[var(--blood)] underline-offset-2 hover:underline"
+    >
+      Source
+      <ExternalIcon />
+    </a>
+  );
+}
+
+function ExternalIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className="size-3.5 fill-none stroke-current"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M6 3.5H3.5A1.5 1.5 0 0 0 2 5v7.5A1.5 1.5 0 0 0 3.5 14H11a1.5 1.5 0 0 0 1.5-1.5V9" />
+      <path d="M9 2h5v5" />
+      <path d="M8 8 14 2" />
+    </svg>
+  );
+}
+
 function RecordDetail({ row }: { row: YoutubeScore }) {
   return (
     <div className="grid gap-5 bg-[var(--paper)]/70 px-4 py-4 sm:px-5">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
+      <div className="flex flex-wrap items-center gap-3">
+        <VerdictStamp verdict={row.verdict} />
         <p className="text-[13px] text-[var(--muted-ink)]">
           AI {pct(row.probs.ai)}% · mixed {pct(row.probs.mixed)}% · human{" "}
           {pct(row.probs.human)}%
         </p>
-        <a
-          href={youtubeAt(row.youtubeUrl, row.startSec)}
-          target="_blank"
-          rel="noreferrer"
-          className="text-[13px] font-medium text-[var(--blood)] underline-offset-2 hover:underline"
-        >
-          Open source
-        </a>
+        <span className="flex items-center gap-1.5 text-[13px] text-[var(--muted-ink)]">
+          <CertaintyBars level={row.confidence} decorative />
+          {CERTAINTY[row.confidence].note}
+        </span>
       </div>
 
       <div>

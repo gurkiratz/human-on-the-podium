@@ -7,9 +7,10 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Sloppy — live AI speech detector",
+  title: "Human on the Podium",
   description:
-    "Transcribes you live and calls you out the moment you start reading AI text out loud.",
+    "Find out how much of a speech was written by a machine. Live detection, "
+    + "plus an archive of analyzed excerpts from talks by MPs.",
 };
 
 export const viewport: Viewport = {

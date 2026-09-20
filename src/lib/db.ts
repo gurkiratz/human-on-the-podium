@@ -1,7 +1,12 @@
 import { DatabaseSync } from "node:sqlite";
 import fs from "node:fs";
 import path from "node:path";
-import type { ClassProbs, ScoredSentence, YoutubeScore } from "./types";
+import type {
+  ClassProbs,
+  ScoredSentence,
+  SourceType,
+  YoutubeScore,
+} from "./types";
 
 export type { YoutubeScore };
 
@@ -29,16 +34,27 @@ function getDb(): DatabaseSync {
       words INTEGER NOT NULL,
       created_at INTEGER NOT NULL,
       embedding BLOB,
-      probs_json TEXT
+      probs_json TEXT,
+      published_at INTEGER,
+      source_duration_sec INTEGER,
+      source_type TEXT NOT NULL DEFAULT 'video'
     );
     CREATE INDEX IF NOT EXISTS idx_youtube_scores_created
       ON youtube_scores(created_at DESC);
   `);
-  // ponytail: add column on older DBs that predate probs_json
-  try {
-    db.exec(`ALTER TABLE youtube_scores ADD COLUMN probs_json TEXT`);
-  } catch {
-    /* already exists */
+  // Older DBs predate these columns. Each ALTER is its own try: a DB that
+  // already has probs_json may still be missing the two newer ones.
+  for (const ddl of [
+    `ALTER TABLE youtube_scores ADD COLUMN probs_json TEXT`,
+    `ALTER TABLE youtube_scores ADD COLUMN published_at INTEGER`,
+    `ALTER TABLE youtube_scores ADD COLUMN source_duration_sec INTEGER`,
+    `ALTER TABLE youtube_scores ADD COLUMN source_type TEXT NOT NULL DEFAULT 'video'`,
+  ]) {
+    try {
+      db.exec(ddl);
+    } catch {
+      /* already exists */
+    }
   }
   return db;
 }
@@ -65,8 +81,8 @@ export function insertYoutubeScore(
       `INSERT INTO youtube_scores (
         id, youtube_url, video_id, title, start_sec, duration_sec,
         transcript, verdict, probability, confidence, sentences_json, words,
-        created_at, probs_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        created_at, probs_json, published_at, source_duration_sec, source_type
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       row.id,
@@ -83,6 +99,9 @@ export function insertYoutubeScore(
       row.words,
       createdAt,
       JSON.stringify(row.probs),
+      row.publishedAt,
+      row.sourceDurationSec,
+      row.sourceType,
     );
   return { ...row, createdAt };
 }
@@ -92,7 +111,8 @@ export function listYoutubeScores(limit = 50): YoutubeScore[] {
     .prepare(
       `SELECT id, youtube_url, video_id, title, start_sec, duration_sec,
               transcript, verdict, probability, confidence, sentences_json,
-              words, created_at, probs_json
+              words, created_at, probs_json, published_at,
+              source_duration_sec, source_type
        FROM youtube_scores
        ORDER BY created_at DESC
        LIMIT ?`,
@@ -112,6 +132,9 @@ export function listYoutubeScores(limit = 50): YoutubeScore[] {
     words: number;
     created_at: number;
     probs_json: string | null;
+    published_at: number | null;
+    source_duration_sec: number | null;
+    source_type: SourceType | null;
   }>;
 
   return rows.map((r) => {
@@ -125,11 +148,14 @@ export function listYoutubeScores(limit = 50): YoutubeScore[] {
     }
     return {
       id: r.id,
+      sourceType: r.source_type ?? "video",
       youtubeUrl: r.youtube_url,
       videoId: r.video_id,
       title: r.title,
       startSec: r.start_sec,
       durationSec: r.duration_sec,
+      publishedAt: r.published_at,
+      sourceDurationSec: r.source_duration_sec,
       transcript: r.transcript,
       verdict: r.verdict,
       probability: r.probability,
@@ -140,4 +166,39 @@ export function listYoutubeScores(limit = 50): YoutubeScore[] {
       createdAt: r.created_at,
     };
   });
+}
+
+/**
+ * Fill in source metadata for a record filed before we captured it. Only the
+ * columns we actually learned something about are touched, so a source that
+ * publishes no date keeps its NULL rather than being stamped with a guess.
+ */
+export function updateSourceMeta(
+  id: string,
+  meta: {
+    publishedAt?: number | null;
+    sourceDurationSec?: number | null;
+    durationSec?: number;
+  },
+): boolean {
+  const sets: string[] = [];
+  const values: Array<number | null> = [];
+  if (meta.publishedAt !== undefined) {
+    sets.push("published_at = ?");
+    values.push(meta.publishedAt);
+  }
+  if (meta.sourceDurationSec !== undefined) {
+    sets.push("source_duration_sec = ?");
+    values.push(meta.sourceDurationSec);
+  }
+  if (meta.durationSec !== undefined) {
+    sets.push("duration_sec = ?");
+    values.push(meta.durationSec);
+  }
+  if (sets.length === 0) return false;
+
+  const res = getDb()
+    .prepare(`UPDATE youtube_scores SET ${sets.join(", ")} WHERE id = ?`)
+    .run(...values, id) as { changes: number | bigint };
+  return Number(res.changes) > 0;
 }

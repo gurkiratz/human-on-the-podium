@@ -1,16 +1,19 @@
 "use client";
 
-import {
-  SENTENCE_AI_THRESHOLD,
-  SENTENCE_HUMAN_MAX,
-} from "@/lib/constants";
+import { SENTENCE_AI_THRESHOLD, SENTENCE_HUMAN_MAX } from "@/lib/constants";
 import type { ClassProbs, ScoredSentence, Verdict } from "@/lib/types";
-import { VERDICT_COLOR, VERDICT_LABEL } from "@/components/VerdictBadge";
+import {
+  AiMeter,
+  CERTAINTY,
+  CertaintyBars,
+  aiPct,
+  type Certainty,
+} from "@/components/ai-scale";
 
 export type ScoreReportProps = {
   verdict: Verdict;
   probs: ClassProbs;
-  confidence: "high" | "medium" | "low";
+  confidence: Certainty;
   sentences: ScoredSentence[];
   transcript: string;
   words: number;
@@ -18,15 +21,20 @@ export type ScoreReportProps = {
   subclass?: string;
 };
 
-const CONF_WORD = {
-  high: "highly",
-  medium: "moderately",
-  low: "somewhat",
-} as const;
+const CLASS_COLOR: Record<Verdict, string> = {
+  ai: "var(--stamp-ai)",
+  mixed: "var(--stamp-mixed)",
+  human: "var(--stamp-human)",
+};
 
-function pct(n: number) {
-  return Math.round(n * 100);
-}
+const CLASS_LABEL: Record<Verdict, string> = {
+  ai: "AI",
+  mixed: "Mixed",
+  human: "Human",
+};
+
+/** Left to right: most machine-like first, so the bar reads like the scale. */
+const CLASS_ORDER: Verdict[] = ["ai", "mixed", "human"];
 
 function sentenceBand(ai: number): Verdict {
   if (ai >= SENTENCE_AI_THRESHOLD) return "ai";
@@ -34,13 +42,9 @@ function sentenceBand(ai: number): Verdict {
   return "human";
 }
 
-const BAND_BG: Record<Verdict, string> = {
-  human: "rgba(48, 209, 88, 0.22)",
-  mixed: "rgba(255, 214, 10, 0.2)",
-  ai: "rgba(255, 159, 10, 0.28)",
-};
-
-const PROB_KEYS: Verdict[] = ["ai", "mixed", "human"];
+function bandWash(band: Verdict) {
+  return `color-mix(in srgb, ${CLASS_COLOR[band]} 16%, transparent)`;
+}
 
 export function ScoreReport({
   verdict,
@@ -52,148 +56,116 @@ export function ScoreReport({
   thin,
   subclass,
 }: ScoreReportProps) {
-  const lead = pct(probs[verdict]);
-
   return (
-    <div className="space-y-5">
+    <div className="space-y-7">
       {thin && (
-        <p className="border border-[var(--color-mixed)]/30 bg-[var(--color-mixed)]/10 px-3.5 py-2.5 text-[13px] text-[var(--color-mixed)]">
-          Short sample ({words} words) — reading may be less reliable.
+        <p
+          className="rounded-[var(--r-sm)] px-3.5 py-2.5 text-[13px] leading-5"
+          style={{
+            background: "color-mix(in srgb, var(--stamp-mixed) 12%, transparent)",
+            color: "var(--ink)",
+          }}
+        >
+          <span className="font-semibold">Short sample.</span> Only {words}{" "}
+          words — below the floor where a &ldquo;human&rdquo; reading means much.
         </p>
       )}
 
-      <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
-        <div
-          className="relative grid h-[88px] w-[88px] place-items-center rounded-full"
-          style={{
-            background: `conic-gradient(${VERDICT_COLOR[verdict]} ${lead}%, rgba(255,255,255,0.08) 0)`,
-          }}
-        >
-          <div className="grid h-[68px] w-[68px] place-items-center rounded-full bg-[var(--color-void)]">
-            <span
-              className="text-[15px] font-bold capitalize"
-              style={{ color: VERDICT_COLOR[verdict] }}
-            >
-              {verdict}
-            </span>
-          </div>
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <p className="text-[15px] leading-snug text-[var(--color-chalk)]">
-            We&apos;re{" "}
-            <span className="font-semibold">{CONF_WORD[confidence]} confident</span>{" "}
-            this segment leans{" "}
-            <span
-              className="font-semibold underline decoration-2 underline-offset-4"
-              style={{
-                color: VERDICT_COLOR[verdict],
-                textDecorationColor: VERDICT_COLOR[verdict],
-              }}
-            >
-              {VERDICT_LABEL[verdict].toLowerCase()}
-            </span>
-            .
-          </p>
+      <div>
+        <p className="paper-label">How much of this reads as machine-written</p>
+        <AiMeter ai={probs.ai} size="lg" className="mt-3 max-w-md" />
+        <div className="mt-3.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px] text-[var(--muted-ink)]">
+          <span className="inline-flex items-center gap-1.5">
+            <CertaintyBars level={confidence} decorative />
+            {CERTAINTY[confidence].word}
+          </span>
+          <span aria-hidden className="text-[var(--faint-ink)]">·</span>
+          <span>{words} words analyzed</span>
           {subclass && (
-            <p className="mt-1 text-[12px] text-[var(--muted)]">{subclass}</p>
+            <>
+              <span aria-hidden className="text-[var(--faint-ink)]">·</span>
+              <span>{subclass}</span>
+            </>
           )}
-          <p className="mt-1 text-[12px] text-[var(--faint)]">
-            {words} words analyzed
-          </p>
         </div>
       </div>
 
-      <div>
-        <p className="caps mb-2 text-[10px] font-semibold text-[var(--faint)]">
-          Chance this segment is…
-        </p>
-        <div className="grid grid-cols-3 gap-2">
-          {PROB_KEYS.map((key) => {
-            const on = key === verdict;
-            const v = pct(probs[key]);
-            return (
-              <div
-                key={key}
-                className="px-3 py-2.5"
+      <div className="paper-divider pt-6">
+        <p className="paper-label">Chance this excerpt is…</p>
+        <div className="mt-3 flex h-2.5 w-full overflow-hidden rounded-full">
+          {CLASS_ORDER.map((key) => (
+            <span
+              key={key}
+              className="h-full"
+              style={{
+                width: `${Math.max(probs[key] * 100, probs[key] > 0 ? 1 : 0)}%`,
+                background: CLASS_COLOR[key],
+              }}
+            />
+          ))}
+        </div>
+        <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
+          {CLASS_ORDER.map((key) => (
+            <div key={key} className="flex items-center gap-2">
+              <span
+                aria-hidden
+                className="size-2 rounded-full"
+                style={{ background: CLASS_COLOR[key] }}
+              />
+              <dt className="text-[13px] text-[var(--muted-ink)]">
+                {CLASS_LABEL[key]}
+              </dt>
+              <dd
+                className="text-[13px] font-semibold tabular-nums"
                 style={{
-                  border: `1.5px solid ${on ? VERDICT_COLOR[key] : "var(--hairline)"}`,
-                  background: on
-                    ? `${VERDICT_COLOR[key]}14`
-                    : "transparent",
+                  color: key === verdict ? CLASS_COLOR[key] : "var(--ink)",
                 }}
               >
-                <p className="caps text-[10px] font-semibold text-[var(--faint)]">
-                  {VERDICT_LABEL[key]}
-                </p>
-                <p
-                  className="mt-0.5 text-[22px] font-bold tabular-nums"
-                  style={{ color: on ? VERDICT_COLOR[key] : "var(--muted)" }}
-                >
-                  {v}%
-                </p>
-                <div className="mt-2 h-1 overflow-hidden bg-white/10">
-                  <div
-                    className="h-full"
-                    style={{
-                      width: `${v}%`,
-                      background: VERDICT_COLOR[key],
-                    }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                {aiPct(probs[key])}%
+              </dd>
+            </div>
+          ))}
+        </dl>
       </div>
 
-      <div>
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <p className="caps text-[10px] font-semibold text-[var(--faint)]">
-            Transcript · sentence heat
-          </p>
-          <p className="flex gap-2 text-[10px] text-[var(--faint)]">
-            <span>
-              <span
-                className="mr-1 inline-block h-2 w-2 rounded-sm"
-                style={{ background: BAND_BG.human }}
-              />
-              human
-            </span>
-            <span>
-              <span
-                className="mr-1 inline-block h-2 w-2 rounded-sm"
-                style={{ background: BAND_BG.mixed }}
-              />
-              mixed
-            </span>
-            <span>
-              <span
-                className="mr-1 inline-block h-2 w-2 rounded-sm"
-                style={{ background: BAND_BG.ai }}
-              />
-              ai
-            </span>
+      <div className="paper-divider pt-6">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <p className="paper-label">Transcript · sentence by sentence</p>
+          <p className="flex gap-3 text-[11px] text-[var(--muted-ink)]">
+            {CLASS_ORDER.slice()
+              .reverse()
+              .map((band) => (
+                <span key={band} className="inline-flex items-center gap-1.5">
+                  <span
+                    aria-hidden
+                    className="inline-block h-2.5 w-4 rounded-[3px]"
+                    style={{ background: bandWash(band) }}
+                  />
+                  {CLASS_LABEL[band].toLowerCase()}
+                </span>
+              ))}
           </p>
         </div>
-        <p className="scroll-fade max-h-[42vh] overflow-y-auto text-[15px] leading-[1.75] text-[var(--color-chalk)] hide-scrollbar">
+        <p className="max-h-[44vh] overflow-y-auto text-[16px] leading-[1.8] text-[var(--ink)]">
           {sentences.length > 0
-            ? sentences.map((s, i) => {
-                const band = sentenceBand(s.ai);
-                return (
-                  <span
-                    key={`${i}-${s.sentence.slice(0, 16)}`}
-                    title={`${pct(s.ai)}% AI-like`}
-                    className="box-decoration-clone rounded-[4px] px-0.5"
-                    style={{ background: BAND_BG[band] }}
-                  >
-                    {s.sentence}{" "}
-                  </span>
-                );
-              })
+            ? sentences.map((s, i) => (
+                <span
+                  key={`${i}-${s.sentence.slice(0, 16)}`}
+                  title={`${aiPct(s.ai)}% AI-like`}
+                  className="box-decoration-clone rounded-[4px] px-0.5"
+                  style={{ background: bandWash(sentenceBand(s.ai)) }}
+                >
+                  {s.sentence}{" "}
+                </span>
+              ))
             : transcript}
         </p>
       </div>
+
+      <p className="paper-divider pt-5 text-[12px] leading-5 text-[var(--faint-ink)]">
+        A machine assessment of transcribed speech, not proof of authorship.
+        Read it alongside the recording, never instead of it.
+      </p>
     </div>
   );
 }

@@ -11,6 +11,12 @@
   --stamp-ai: #d83b1d;
   --stamp-human: #267346;
   --stamp-mixed: #d2a20e;
+  /* Same five bands as the dark pages, re-tuned to stay legible on paper. */
+  --band-1: #1d6b41;
+  --band-2: #4e8f3c;
+  --band-3: #b8890c;
+  --band-4: #dd6a1e;
+  --band-5: #cc3a1c;
   min-height: 100dvh;
   background: var(--paper);
   color: var(--ink);

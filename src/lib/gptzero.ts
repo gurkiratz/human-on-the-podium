@@ -70,7 +70,7 @@ export async function scoreChunk(
       "x-api-key": gptZeroKey(),
       "Content-Type": "application/json",
       Accept: "application/json",
-      "User-Agent": "sloppy/1.0",
+      "User-Agent": "human-on-the-podium/1.0",
     },
     body: JSON.stringify({ document: text, multilingual: false }),
   });

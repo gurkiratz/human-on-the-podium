@@ -4,7 +4,9 @@ import { scoreChunk } from "@/lib/gptzero";
 import { transcribeFile } from "@/lib/stt-file";
 import {
   cleanupClip,
+  extractCpacMinuteClip,
   extractMinuteClip,
+  parseCpacId,
   parseYoutubeId,
 } from "@/lib/youtube";
 import {
@@ -35,12 +37,19 @@ export async function POST(request: Request) {
       startSec?: number;
     };
     const url = body.url?.trim();
-    if (!url || !parseYoutubeId(url)) {
-      return Response.json({ error: "Valid YouTube URL required" }, { status: 400 });
+    const isYt = !!url && !!parseYoutubeId(url);
+    const isCpac = !!url && !!parseCpacId(url);
+    if (!isYt && !isCpac) {
+      return Response.json(
+        { error: "Valid YouTube or CPAC URL required" },
+        { status: 400 },
+      );
     }
     const startSec = Math.max(0, Math.floor(Number(body.startSec) || 0));
 
-    const clip = await extractMinuteClip(url, startSec);
+    const clip = isYt
+      ? await extractMinuteClip(url!, startSec)
+      : await extractCpacMinuteClip(url!, startSec);
     audioPath = clip.audioPath;
 
     const transcript = await transcribeFile(clip.audioPath);
@@ -48,11 +57,14 @@ export async function POST(request: Request) {
 
     const row = insertYoutubeScore({
       id: randomUUID(),
+      sourceType: "video",
       youtubeUrl: url,
       videoId: clip.videoId,
       title: clip.title,
       startSec: clip.startSec,
       durationSec: clip.durationSec,
+      publishedAt: clip.publishedAt,
+      sourceDurationSec: clip.sourceDurationSec,
       transcript,
       verdict: detection.verdict,
       probability: detection.probability,

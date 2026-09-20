@@ -1,0 +1,98 @@
+/**
+ * The analyze page reads and writes documents — a transcript, an assessment,
+ * a source. That is the same job the archive does, so it gets the same paper
+ * surface rather than the near-black of the live capture view. The only dark
+ * thing here is the video stage, which earns it.
+ */
+.paper-root {
+  color-scheme: light;
+
+  --paper: #f7f7f4;
+  --paper-deep: #eceae4;
+  --card: #ffffff;
+  --field-bg: #ffffff;
+
+  --ink: #11120f;
+  --muted-ink: #60615b;
+  --faint-ink: #85867f;
+
+  --line: rgba(17, 18, 15, 0.13);
+  --line-strong: rgba(17, 18, 15, 0.3);
+
+  --accent: #e04420;
+  --accent-press: #bd3517;
+
+  --stamp-ai: #d83b1d;
+  --stamp-human: #267346;
+  --stamp-mixed: #b8890c;
+
+  /* Same five bands as the dark pages, re-tuned to stay legible on paper. */
+  --band-1: #1d6b41;
+  --band-2: #4e8f3c;
+  --band-3: #b8890c;
+  --band-4: #dd6a1e;
+  --band-5: #cc3a1c;
+
+  /* Informational blue — deliberately outside the verdict scale. */
+  --note-ink: #13456f;
+  --note-bg: rgba(23, 91, 150, 0.08);
+  --note-line: rgba(23, 91, 150, 0.22);
+
+  min-height: 100dvh;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  font-optical-sizing: auto;
+}
+
+/* Tracking is size-specific: the serif display tightens, the small caps open up. */
+.paper-display {
+  font-family: var(--font-newsreader), Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.032em;
+  line-height: 1.04;
+}
+
+.paper-heading {
+  font-family: var(--font-newsreader), Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.paper-label {
+  font-weight: 650;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faint-ink);
+}
+
+/* A card lifts off the paper with a soft, low shadow — not a hard border. */
+.paper-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: 0 1px 2px rgba(17, 18, 15, 0.04),
+    0 8px 24px -18px rgba(17, 18, 15, 0.28);
+}
+
+.paper-divider {
+  border-top: 1px solid var(--line);
+}
+
+/* The one dark surface on the page. Video wants a black stage. */
+.paper-stage {
+  background: #0a0a0b;
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+
+@media (prefers-contrast: more) {
+  .paper-root {
+    --line: rgba(17, 18, 15, 0.34);
+    --muted-ink: #3d3e39;
+    --faint-ink: #55564f;
+  }
+}
