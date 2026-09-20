@@ -1,0 +1,24 @@
+{
+  "name": "humanonthepodium",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:server": "npm run dev -w @humanonthepodium/server",
+    "dev:extension": "npm run dev -w @humanonthepodium/extension",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "restart": "powershell -ExecutionPolicy Bypass -File scripts/restart-humanonthepodium.ps1"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "overrides": {
+    "vite": "^6.4.3",
+    "@vitejs/plugin-react": "^4.3.4"
+  }
+}
