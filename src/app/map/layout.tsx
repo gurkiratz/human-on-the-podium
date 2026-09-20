@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Newsreader } from "next/font/google";
-import "./investigate.css";
+import "../paper.css";
+import "./map.css";
 
 const newsreader = Newsreader({
   subsets: ["latin"],
@@ -9,20 +10,22 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: "Investigate — Human on the Podium",
+  title: "Map — Human on the Podium",
   description:
-    "Search analyzed excerpts from speeches and talks by MPs: verdicts, transcripts, and sentence-level evidence.",
+    "Every analyzed record placed by meaning and coloured by how much of it reads as machine-written.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#14110d",
+  themeColor: "#edf5f7",
   viewportFit: "cover",
 };
 
-export default function InvestigateLayout({
+export default function MapLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <div className={`${newsreader.variable} investigate-root`}>{children}</div>;
+  return (
+    <div className={`${newsreader.variable} paper-root map-root`}>{children}</div>
+  );
 }

@@ -35,7 +35,7 @@
   --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
 
   /* The AI-share scale, shared with the archive table. Tuned for a dark ground;
-     .investigate-root overrides all five for paper. */
+     .database-root overrides all five for paper. */
   --band-1: #34c759;
   --band-2: #a2d149;
   --band-3: #ffd60a;

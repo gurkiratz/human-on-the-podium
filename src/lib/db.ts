@@ -37,7 +37,12 @@ function getDb(): DatabaseSync {
       probs_json TEXT,
       published_at INTEGER,
       source_duration_sec INTEGER,
-      source_type TEXT NOT NULL DEFAULT 'video'
+      source_type TEXT NOT NULL DEFAULT 'video',
+      embed_x REAL,
+      embed_y REAL,
+      embed_x3 REAL,
+      embed_y3 REAL,
+      embed_z3 REAL
     );
     CREATE INDEX IF NOT EXISTS idx_youtube_scores_created
       ON youtube_scores(created_at DESC);
@@ -49,6 +54,11 @@ function getDb(): DatabaseSync {
     `ALTER TABLE youtube_scores ADD COLUMN published_at INTEGER`,
     `ALTER TABLE youtube_scores ADD COLUMN source_duration_sec INTEGER`,
     `ALTER TABLE youtube_scores ADD COLUMN source_type TEXT NOT NULL DEFAULT 'video'`,
+    `ALTER TABLE youtube_scores ADD COLUMN embed_x REAL`,
+    `ALTER TABLE youtube_scores ADD COLUMN embed_y REAL`,
+    `ALTER TABLE youtube_scores ADD COLUMN embed_x3 REAL`,
+    `ALTER TABLE youtube_scores ADD COLUMN embed_y3 REAL`,
+    `ALTER TABLE youtube_scores ADD COLUMN embed_z3 REAL`,
   ]) {
     try {
       db.exec(ddl);
@@ -73,7 +83,9 @@ function probsFromLegacy(
 }
 
 export function insertYoutubeScore(
-  row: Omit<YoutubeScore, "createdAt"> & { createdAt?: number },
+  row: Omit<YoutubeScore, "createdAt" | "point" | "point3"> & {
+    createdAt?: number;
+  },
 ): YoutubeScore {
   const createdAt = row.createdAt ?? Date.now();
   getDb()
@@ -103,7 +115,7 @@ export function insertYoutubeScore(
       row.sourceDurationSec,
       row.sourceType,
     );
-  return { ...row, createdAt };
+  return { ...row, createdAt, point: null, point3: null };
 }
 
 export function listYoutubeScores(limit = 50): YoutubeScore[] {
@@ -112,7 +124,8 @@ export function listYoutubeScores(limit = 50): YoutubeScore[] {
       `SELECT id, youtube_url, video_id, title, start_sec, duration_sec,
               transcript, verdict, probability, confidence, sentences_json,
               words, created_at, probs_json, published_at,
-              source_duration_sec, source_type
+              source_duration_sec, source_type, embed_x, embed_y,
+              embed_x3, embed_y3, embed_z3
        FROM youtube_scores
        ORDER BY created_at DESC
        LIMIT ?`,
@@ -135,6 +148,11 @@ export function listYoutubeScores(limit = 50): YoutubeScore[] {
     published_at: number | null;
     source_duration_sec: number | null;
     source_type: SourceType | null;
+    embed_x: number | null;
+    embed_y: number | null;
+    embed_x3: number | null;
+    embed_y3: number | null;
+    embed_z3: number | null;
   }>;
 
   return rows.map((r) => {
@@ -149,6 +167,14 @@ export function listYoutubeScores(limit = 50): YoutubeScore[] {
     return {
       id: r.id,
       sourceType: r.source_type ?? "video",
+      point:
+        r.embed_x !== null && r.embed_y !== null
+          ? { x: r.embed_x, y: r.embed_y }
+          : null,
+      point3:
+        r.embed_x3 !== null && r.embed_y3 !== null && r.embed_z3 !== null
+          ? { x: r.embed_x3, y: r.embed_y3, z: r.embed_z3 }
+          : null,
       youtubeUrl: r.youtube_url,
       videoId: r.video_id,
       title: r.title,
@@ -201,4 +227,27 @@ export function updateSourceMeta(
     .prepare(`UPDATE youtube_scores SET ${sets.join(", ")} WHERE id = ?`)
     .run(...values, id) as { changes: number | bigint };
   return Number(res.changes) > 0;
+}
+
+/** Store the 2D projection of a record's embedding. */
+export function setEmbedPoint(id: string, x: number, y: number): void {
+  getDb()
+    .prepare(`UPDATE youtube_scores SET embed_x = ?, embed_y = ? WHERE id = ?`)
+    .run(x, y, id);
+}
+
+/** Store the 3D projection — its own UMAP run, kept beside the 2D one. */
+export function setEmbedPoint3(
+  id: string,
+  x: number,
+  y: number,
+  z: number,
+): void {
+  getDb()
+    .prepare(
+      `UPDATE youtube_scores
+         SET embed_x3 = ?, embed_y3 = ?, embed_z3 = ?
+       WHERE id = ?`,
+    )
+    .run(x, y, z, id);
 }

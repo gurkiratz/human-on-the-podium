@@ -1,15 +1,16 @@
 # Human on the Podium
 
 When AI-written text is read aloud, it is hard to catch by ear. This finds out
-how much of a speech a machine wrote.
+how much of a speech — or an appointment record — a machine wrote.
 
-Three surfaces over one detection pipeline:
+Four surfaces over one detection pipeline:
 
 | | What it does |
 |---|---|
 | **Live** (`/`) | Transcribes you as you talk, analyzes each chunk, and cuts you off out loud the moment you start reading AI text. |
 | **Analyze** (`/youtube`) | Takes a sixty-second excerpt from a speech or talk by an MP and returns its AI share, transcript, and sentence-level evidence. |
-| **Investigate** (`/investigate`) | The archive — every excerpt analyzed so far, searchable, with the evidence behind each reading. |
+| **Database** (`/database`) | Every record analyzed so far, searchable, with the evidence behind each reading. |
+| **Map** (`/map`) | The whole corpus placed by meaning and coloured by AI share. Records that say the same thing sit together, so a tight knot in two colours is the detector reading near-identical text two different ways. |
 
 ```bash
 npm run dev
@@ -20,6 +21,8 @@ Needs `.env` in the project root:
 ```
 GPT_ZERO_API_KEY=...
 11LABS_API_KEY=...
+ELASTIC_URL=...
+ELASTIC_API_KEY=...
 ```
 
 `yt-dlp` and `ffmpeg` must be on `PATH` for the Analyze page. A project-local
@@ -33,6 +36,9 @@ GPT_ZERO_API_KEY=...
 | Styling | Tailwind CSS v4, CSS custom properties for theming |
 | Motion | `motion` (Framer Motion), springs over fixed-duration curves |
 | Tables | TanStack Table v8 |
+| Plotting | visx — SVG, so every dot is a real DOM node that can be styled, focused and hovered |
+| Projection | `umap-js`, run once at build time and cached |
+| Vectors | Elasticsearch Serverless (`dense_vector` + kNN) |
 | Dates | Luxon |
 | Audio capture | `getUserMedia` + an AudioWorklet (`public/worklets/pcm-recorder.js`) emitting PCM16 @ 16 kHz |
 | Media extraction | `yt-dlp` and `ffmpeg`, shelled out from the Node runtime |
@@ -56,6 +62,21 @@ For both, the recording's real length is checked before anything downloads, so
 a start time past the end fails with a readable message instead of an opaque
 codec error. The stored clip length is what we actually analyzed, which is
 shorter than 60s when the excerpt runs off the end of a short recording.
+
+**Written records**
+
+CSVs of government appointment records (`title, source, body, source_type`),
+filed with `source_type = 'doc'`. Two formats are handled, and they differ in
+ways that matter:
+
+- Provincial Orders in Council open `Order in Council ... <Month D, YYYY>`.
+- Federal Privy Council orders carry a labelled `Date: YYYY-MM-DD`, and arrive
+  with their line breaks escaped as the two characters `\` and `n`.
+
+So the ingest unescapes the body before storing it, and reads the labelled ISO
+date first, falling back to the prose form bounded to the first 200 characters
+— dates deeper into those texts are effective dates and term ends, not the
+date of the order.
 
 **Analysis**
 
@@ -81,6 +102,27 @@ its airdate at midnight UTC, so localising it would show the day before.
    `src/lib/roast.ts`. The mic is hard-muted before playback and reopened when
    it ends, so the app never transcribes its own voice.
 
+## The map
+
+`scripts/build-embeddings.mts` embeds each record, indexes the vector in
+Elasticsearch, then projects every vector to 2D and caches `x,y` on the SQLite
+row. Notes worth keeping:
+
+- **Dense, not sparse.** ELSER produces weighted term expansions, which cannot
+  be projected onto a canvas. The default is `.jina-embeddings-v5-text-small`
+  (1024 dims) via Elastic-hosted inference, so there is no second provider key.
+  Swap `EMBED_MODEL` and `EMBED_DIMS` together in `src/lib/elastic.ts`.
+- **UMAP is seeded.** An unseeded run redraws the map differently every time,
+  which destroys any sense of place.
+- **Elasticsearch 9 keeps `dense_vector` out of `_source`.** A plain `get`
+  returns the document without its vector and kNN then finds nothing, with no
+  error. Reads that need the vector pass `_source: { exclude_vectors: false }`.
+- **Projection happens once, not in the browser.** The page reads flat rows.
+
+Clicking a dot runs a kNN query for the records nearest in meaning and shows
+their readings next to each other — which is where the detector's
+disagreements become legible.
+
 ## Reading the result
 
 Every reading is shown as the **share of the excerpt that reads as
@@ -99,16 +141,18 @@ unit (`28% AI`) and a plain-language band sits beside it:
 The scale lives in `src/components/ai-scale.tsx` and is shared by every surface;
 its colors are CSS variables, retuned per theme rather than duplicated.
 
-These are machine assessments of transcribed speech, not proof of authorship.
+These are machine assessments of transcribed speech and written records, not
+proof of authorship.
 
 ## What the findings doc changed
 
 `GPT_ZERO_FINDINGS.md` drove three decisions worth knowing about:
 
 - **Sentence level, not paragraph level.** A transcript has no line breaks, so
-  every sentence lands in one paragraph that scores 0.000. Highlighting uses
-  `sentences[].class_probabilities.ai` against a 0.65 threshold, and ignores
-  `highlight_sentence_for_ai`, which was false even for known AI sentences.
+  every sentence lands in one paragraph that comes back 0.000. Highlighting
+  uses `sentences[].class_probabilities.ai` against a 0.65 threshold, and
+  ignores `highlight_sentence_for_ai`, which was false even for known AI
+  sentences.
 - **70 words is the floor for casual speech.** Chunks below it are marked
   `thin`.
 - **Thin chunks are trusted in one direction only.** A short chunk can miss AI
@@ -123,6 +167,8 @@ These are machine assessments of transcribed speech, not proof of authorship.
 | Chunk size, pause threshold | `src/lib/chunker.ts` |
 | Sentence highlight threshold | `src/lib/constants.ts` |
 | AI-share bands and labels | `src/components/ai-scale.tsx` |
+| Embedding model and dimensions | `src/lib/elastic.ts` |
+| Contested-neighbourhood threshold | `DISAGREEMENT` in `src/app/map/page.tsx` |
 | Concurrent analyze jobs | `MAX_YOUTUBE_JOBS` in `src/lib/constants.ts` |
 | Roast lines | `src/lib/roast.ts` |
 | Voices, TTS model | `src/lib/voices.ts` |
@@ -136,9 +182,19 @@ after the first use.
 ## Scripts
 
 ```bash
-npx tsx scripts/backfill-source-meta.mts --dry   # preview
-npx tsx scripts/backfill-source-meta.mts         # fill in missing dates/durations
+# Analyze a CSV of written records and file them
+npx tsx scripts/ingest-appointments.mts --file data/your.csv --dry
+npx tsx scripts/ingest-appointments.mts --file data/your.csv
+
+# Embed anything new, then reproject the whole corpus
+npx tsx scripts/build-embeddings.mts
+npx tsx scripts/build-embeddings.mts --project    # reproject only, no API calls
+npx tsx scripts/build-embeddings.mts --reembed    # rebuild every vector
+
+# Fill in dates and durations for records filed before we captured them
+npx tsx scripts/backfill-source-meta.mts --dry
+npx tsx scripts/backfill-source-meta.mts
 ```
 
-Re-runnable; only touches records still missing metadata, and downloads no
-audio.
+All three are re-runnable and skip work already done, so an interrupted run can
+simply be repeated without paying for it twice.

@@ -81,4 +81,16 @@ export type YoutubeScore = {
   sentences: ScoredSentence[];
   words: number;
   createdAt: number;
+  /**
+   * Where this record sits on the 2D map. Projected from its embedding once
+   * and cached, so the page never re-runs UMAP. Null until embeddings are
+   * built for it.
+   */
+  point: { x: number; y: number } | null;
+  /**
+   * Where it sits in the 3D map. A separate UMAP run, not the 2D layout with
+   * a depth bolted on: asking for a third component rearranges the other two,
+   * so the two layouts are independent and both are cached.
+   */
+  point3: { x: number; y: number; z: number } | null;
 };

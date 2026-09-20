@@ -9,7 +9,7 @@ const EXAMPLES = ["debate", "parliament", "speech"] as const;
 
 type VerdictFilter = "all" | Verdict;
 
-export function InvestigateArchive({ results }: { results: YoutubeScore[] }) {
+export function DatabaseArchive({ results }: { results: YoutubeScore[] }) {
   const [draft, setDraft] = useState("");
   const [query, setQuery] = useState("");
   const [verdict, setVerdict] = useState<VerdictFilter>("all");
@@ -32,22 +32,22 @@ export function InvestigateArchive({ results }: { results: YoutubeScore[] }) {
     <main>
       <header className="relative isolate min-h-[560px] overflow-hidden pt-14 text-white sm:min-h-[600px]">
         <Image
-          src="/investigate/hero.jpg"
+          src="/database/hero.jpg"
           alt="Lowell Lecture Hall, a stone building with tall arched windows"
           fill
           priority
-          className="investigate-hero-photo object-cover object-[center_38%]"
+          className="database-hero-photo object-cover object-[center_38%]"
         />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,9,7,.9)_0%,rgba(8,9,7,.7)_48%,rgba(8,9,7,.3)_100%)]" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/25" />
-        <div className="investigate-grain absolute inset-0" />
+        <div className="database-grain absolute inset-0" />
 
         <div className="relative z-10 mx-auto flex min-h-[504px] max-w-6xl flex-col px-5 sm:min-h-[544px] sm:px-8">
           <div className="flex flex-1 flex-col justify-center py-10 sm:py-12">
-            <p className="investigate-stamp text-[11px] text-white/65">
+            <p className="database-stamp text-[11px] text-white/65">
               Detection archive
             </p>
-            <h1 className="investigate-title mt-4 max-w-[8ch] text-6xl ">
+            <h1 className="database-title mt-4 max-w-[8ch] text-6xl ">
               Speech Trail
             </h1>
             <p className="mt-5 max-w-xl text-[16px] leading-7 text-white/75 sm:text-[18px]">
@@ -73,7 +73,7 @@ export function InvestigateArchive({ results }: { results: YoutubeScore[] }) {
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     placeholder="Search transcripts, titles, or IDs"
-                    className="investigate-field h-14 w-full px-4 text-[15px]"
+                    className="database-field h-14 w-full px-4 text-[15px]"
                   />
                 </label>
                 <label className="relative">
@@ -84,7 +84,7 @@ export function InvestigateArchive({ results }: { results: YoutubeScore[] }) {
                     onChange={(e) =>
                       setVerdict(e.target.value as VerdictFilter)
                     }
-                    className="investigate-field h-14 w-full appearance-none px-4 pr-10 text-[14px]"
+                    className="database-field h-14 w-full appearance-none px-4 pr-10 text-[14px]"
                   >
                     <option value="all">All recordings</option>
                     <option value="ai">AI</option>
@@ -147,7 +147,7 @@ export function InvestigateArchive({ results }: { results: YoutubeScore[] }) {
         </p> */}
 
         <div id="records" className=" scroll-mt-8">
-          <h2 className="investigate-punch text-[clamp(2.2rem,5vw,3.4rem)]">
+          <h2 className="database-punch text-[clamp(2.2rem,5vw,3.4rem)]">
             The records
           </h2>
           <p className="mt-3 max-w-2xl text-[15px] leading-6 text-[var(--muted-ink)]">
@@ -161,7 +161,7 @@ export function InvestigateArchive({ results }: { results: YoutubeScore[] }) {
 
         <div className="grid gap-4 py-14">
           <div>
-            <h2 className="investigate-punch mt-3 text-4xl">
+            <h2 className="database-punch mt-3 text-4xl">
               About the project
             </h2>
           </div>
@@ -188,7 +188,7 @@ export function InvestigateArchive({ results }: { results: YoutubeScore[] }) {
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div>
-      <dt className="investigate-stamp text-[10px] text-white/55">{label}</dt>
+      <dt className="database-stamp text-[10px] text-white/55">{label}</dt>
       <dd className="mt-1 text-[30px] font-medium tracking-[-0.035em] text-white tabular-nums">
         {value}
       </dd>

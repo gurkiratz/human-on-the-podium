@@ -184,21 +184,21 @@ export default function AnalyzePage() {
   return (
     <main className="pt-14">
       <div className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
-        <header className="py-9 sm:py-12">
-          <p className="paper-label">Speech analysis</p>
+        <header className="-mx-5 mb-6 bg-[#2b2c29] px-5 py-9 text-white [--faint-ink:rgba(255,255,255,0.48)] [--muted-ink:rgba(255,255,255,0.7)] sm:-mx-8 sm:px-8 sm:py-12">
+          {/* <p className="paper-label">Speech analysis</p> */}
           <h1 className="paper-display mt-3.5 text-[clamp(2rem,4vw,3rem)]">
-            Analyze a speech
+            Analyze a video, audio, or document
           </h1>
           <p className="mt-4 max-w-2xl text-[16px] leading-7 text-[var(--muted-ink)]">
-            Pick a sixty-second excerpt from a speech or talk by an MP. We pull
-            the audio, transcribe it, and show how much of it reads as
-            machine-written — with the sentence-level evidence behind it.
+            Extract and transcribe audio with 11Labs, then check for
+            AI-generated text with GPTZero. Storing the results in a vectorized
+            database with Elastic.co
           </p>
           <BandLegend className="mt-5" />
         </header>
 
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(290px,330px)_1fr]">
-          <section className="paper-card overflow-hidden lg:sticky lg:top-[76px]">
+        <div className="-mx-5 grid items-start gap-0 sm:-mx-8 lg:grid-cols-[330px_1fr]">
+          <section className="overflow-hidden border border-[var(--line)] bg-[var(--card)]">
             <div className="p-4 sm:p-5">
               <p className="paper-label">New analysis</p>
 
@@ -332,8 +332,12 @@ export default function AnalyzePage() {
                           </span>
                           <span className="mt-0.5 block truncate text-[11px] text-[var(--faint-ink)]">
                             {r.publishedAt !== null
-                              ? `${formatDay(r.publishedAt)} · @${formatStart(r.startSec)}`
-                              : `@${formatStart(r.startSec)} · ${r.words} words`}
+                              ? `${formatDay(r.publishedAt)} · @${formatStart(
+                                  r.startSec
+                                )}`
+                              : `@${formatStart(r.startSec)} · ${
+                                  r.words
+                                } words`}
                           </span>
                         </span>
                         <AiMeter
@@ -349,7 +353,10 @@ export default function AnalyzePage() {
             )}
           </section>
 
-          <section id="result" className="paper-card scroll-mt-20 p-5 sm:p-7">
+          <section
+            id="result"
+            className="scroll-mt-20 border border-t-0 border-[var(--line)] bg-[var(--card)] p-5 sm:p-7 lg:border-l-0 lg:border-t"
+          >
             {!active ? (
               <div className="space-y-6">
                 {previewUrl ? (
@@ -406,9 +413,9 @@ export default function AnalyzePage() {
                     href={active.youtubeUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="focus-ring shrink-0 rounded-[4px] text-[13px] font-medium text-[var(--accent)] underline-offset-2 hover:underline"
+                    className="focus-ring shrink-0 rounded-[4px] text-[13px] font-medium text-[var(--accent)] underline-offset-2 underline"
                   >
-                    Open source
+                    Source
                   </a>
                 </div>
                 <p className="-mt-4 text-[13px] text-[var(--faint-ink)]">

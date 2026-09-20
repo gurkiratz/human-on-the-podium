@@ -396,7 +396,7 @@ function RecordDetail({ row }: { row: YoutubeScore }) {
       </div>
 
       <div>
-        <p className="investigate-stamp mb-2 text-[10px] text-[var(--faint-ink)]">
+        <p className="database-stamp mb-2 text-[10px] text-[var(--faint-ink)]">
           Transcript · hover highlights for confidence
         </p>
         <p className="max-h-64 overflow-y-auto text-[16px] leading-relaxed">

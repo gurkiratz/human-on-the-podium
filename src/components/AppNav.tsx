@@ -6,15 +6,11 @@ import { usePathname } from "next/navigation";
 const LINKS = [
   { href: "/", label: "Live" },
   { href: "/youtube", label: "Analyze" },
-  { href: "/investigate", label: "Investigate" },
+  { href: "/database", label: "Database" },
+  { href: "/map", label: "Map" },
 ] as const;
 
-/**
- * Analyze reads on paper, so a solid black bar above it lands as a hard edge.
- * The chrome takes the weight of the page underneath it instead — a light
- * material there, the dark one over the capture view and the archive's photo.
- */
-const PAPER_ROUTES = ["/youtube"];
+const PAPER_ROUTES = ["/map"];
 
 export function AppNav() {
   const pathname = usePathname();
@@ -24,7 +20,7 @@ export function AppNav() {
     <header
       className={`fixed inset-x-0 top-0 z-40 border-b backdrop-blur-xl ${
         paper
-          ? "border-[rgba(17,18,15,0.1)] bg-[rgba(250,250,248,0.78)]"
+          ? "border-[rgba(25,72,86,0.12)] bg-[rgba(237,245,247,0.82)]"
           : "border-white/12 bg-black/75"
       }`}
     >
@@ -46,8 +42,8 @@ export function AppNav() {
                 ? "text-[#11120f]"
                 : "text-[#60615b] hover:text-[#11120f]"
               : active
-                ? "text-white"
-                : "text-white/55 hover:text-white";
+              ? "text-white"
+              : "text-white/55 hover:text-white";
             return (
               <Link
                 key={l.href}

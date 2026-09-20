@@ -62,28 +62,33 @@ export function ScoreReport({
         <p
           className="rounded-[var(--r-sm)] px-3.5 py-2.5 text-[13px] leading-5"
           style={{
-            background: "color-mix(in srgb, var(--stamp-mixed) 12%, transparent)",
+            background:
+              "color-mix(in srgb, var(--stamp-mixed) 12%, transparent)",
             color: "var(--ink)",
           }}
         >
           <span className="font-semibold">Short sample.</span> Only {words}{" "}
-          words — below the floor where a &ldquo;human&rdquo; reading means much.
+          words — below the floor where a &ldquo;human&rdquo; reading means
+          much.
         </p>
       )}
 
       <div>
-        <p className="paper-label">How much of this reads as machine-written</p>
         <AiMeter ai={probs.ai} size="lg" className="mt-3 max-w-md" />
         <div className="mt-3.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px] text-[var(--muted-ink)]">
           <span className="inline-flex items-center gap-1.5">
             <CertaintyBars level={confidence} decorative />
             {CERTAINTY[confidence].word}
           </span>
-          <span aria-hidden className="text-[var(--faint-ink)]">·</span>
+          <span aria-hidden className="text-[var(--faint-ink)]">
+            ·
+          </span>
           <span>{words} words analyzed</span>
           {subclass && (
             <>
-              <span aria-hidden className="text-[var(--faint-ink)]">·</span>
+              <span aria-hidden className="text-[var(--faint-ink)]">
+                ·
+              </span>
               <span>{subclass}</span>
             </>
           )}

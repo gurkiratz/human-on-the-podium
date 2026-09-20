@@ -1,0 +1,11 @@
+.map-root {
+  --paper: #edf5f7;
+  --paper-deep: #dce9ed;
+  --card: #f8fbfc;
+  --field-bg: #f8fbfc;
+  --ink: #10252c;
+  --muted-ink: #516a72;
+  --faint-ink: #789098;
+  --line: rgba(25, 72, 86, 0.14);
+  --line-strong: rgba(25, 72, 86, 0.32);
+}
