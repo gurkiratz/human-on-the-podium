@@ -5,12 +5,12 @@ how much of a speech — or an appointment record — a machine wrote.
 
 Four surfaces over one detection pipeline:
 
-| | What it does |
-|---|---|
-| **Live** (`/`) | Transcribes you as you talk, analyzes each chunk, and cuts you off out loud the moment you start reading AI text. |
-| **Analyze** (`/youtube`) | Takes a sixty-second excerpt from a speech or talk by an MP and returns its AI share, transcript, and sentence-level evidence. |
-| **Database** (`/database`) | Every record analyzed so far, searchable, with the evidence behind each reading. |
-| **Map** (`/map`) | The whole corpus placed by meaning and coloured by AI share. Records that say the same thing sit together, so a tight knot in two colours is the detector reading near-identical text two different ways. |
+|                            | What it does                                                                                                                                                                                              |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Live** (`/`)             | Transcribes you as you talk, analyzes each chunk, and cuts you off out loud the moment you start reading AI text.                                                                                         |
+| **Analyze** (`/youtube`)   | Takes a sixty-second excerpt from a speech or talk by an MP and returns its AI share, transcript, and sentence-level evidence.                                                                            |
+| **Database** (`/database`) | Every record analyzed so far, searchable, with the evidence behind each reading.                                                                                                                          |
+| **Map** (`/map`)           | The whole corpus placed by meaning and coloured by AI share. Records that say the same thing sit together, so a tight knot in two colours is the detector reading near-identical text two different ways. |
 
 ```bash
 npm run dev
@@ -30,19 +30,14 @@ ELASTIC_API_KEY=...
 
 ## Tech stack
 
-| Layer | Choice |
-|---|---|
-| Framework | Next.js 16 (App Router, Turbopack), React 19, TypeScript |
-| Styling | Tailwind CSS v4, CSS custom properties for theming |
-| Motion | `motion` (Framer Motion), springs over fixed-duration curves |
-| Tables | TanStack Table v8 |
-| Plotting | visx — SVG, so every dot is a real DOM node that can be styled, focused and hovered |
-| Projection | `umap-js`, run once at build time and cached |
-| Vectors | Elasticsearch Serverless (`dense_vector` + kNN) |
-| Dates | Luxon |
-| Audio capture | `getUserMedia` + an AudioWorklet (`public/worklets/pcm-recorder.js`) emitting PCM16 @ 16 kHz |
-| Media extraction | `yt-dlp` and `ffmpeg`, shelled out from the Node runtime |
-| Storage | Local SQLite via `node:sqlite`, file at `data/sloppy.db` (gitignored) |
+| Layer            | Choice                                                                                       |
+| ---------------- | -------------------------------------------------------------------------------------------- |
+| Framework        | Next.js 16 (App Router, Turbopack), React 19, TypeScript, TanStack Table v8                  |
+| Tables           | TanStack Table v8                                                                            |
+| Vectors          | elastic.co Serverless (`dense_vector` + kNN)                                                 |
+| Audio capture    | `getUserMedia` + an AudioWorklet (`public/worklets/pcm-recorder.js`) emitting PCM16 @ 16 kHz |
+| Media extraction | `yt-dlp` and `ffmpeg`, shelled out from the Node runtime                                     |
+| Storage          | Local SQLite via `node:sqlite`, file at `data/sloppy.db` (gitignored)                        |
 
 Everything server-side runs on the Node runtime, not the edge — the analyze
 route spawns binaries and can take minutes.
@@ -130,13 +125,13 @@ machine-written**, never as a bare verdict word. A lone "HUMAN" stamp reads as
 a hard ruling even when the model is hedging, so the number carries its own
 unit (`28% AI`) and a plain-language band sits beside it:
 
-| AI share | Reads |
-|---|---|
-| 0–9% | Human hands |
-| 10–29% | Mostly human |
-| 30–54% | Ghostwriter? |
-| 55–79% | Leans machine |
-| 80–100% | Reads like a bot |
+| AI share | Reads            |
+| -------- | ---------------- |
+| 0–9%     | Human hands      |
+| 10–29%   | Mostly human     |
+| 30–54%   | Ghostwriter?     |
+| 55–79%   | Leans machine    |
+| 80–100%  | Reads like a bot |
 
 The scale lives in `src/components/ai-scale.tsx` and is shared by every surface;
 its colors are CSS variables, retuned per theme rather than duplicated.
@@ -162,17 +157,17 @@ proof of authorship.
 
 ## Tuning
 
-| What | Where |
-|---|---|
-| Chunk size, pause threshold | `src/lib/chunker.ts` |
-| Sentence highlight threshold | `src/lib/constants.ts` |
-| AI-share bands and labels | `src/components/ai-scale.tsx` |
-| Embedding model and dimensions | `src/lib/elastic.ts` |
-| Contested-neighbourhood threshold | `DISAGREEMENT` in `src/app/map/page.tsx` |
-| Concurrent analyze jobs | `MAX_YOUTUBE_JOBS` in `src/lib/constants.ts` |
-| Roast lines | `src/lib/roast.ts` |
-| Voices, TTS model | `src/lib/voices.ts` |
-| Praise cooldown | `PRAISE_COOLDOWN_MS` in `src/lib/useDetector.ts` |
+| What                              | Where                                            |
+| --------------------------------- | ------------------------------------------------ |
+| Chunk size, pause threshold       | `src/lib/chunker.ts`                             |
+| Sentence highlight threshold      | `src/lib/constants.ts`                           |
+| AI-share bands and labels         | `src/components/ai-scale.tsx`                    |
+| Embedding model and dimensions    | `src/lib/elastic.ts`                             |
+| Contested-neighbourhood threshold | `DISAGREEMENT` in `src/app/map/page.tsx`         |
+| Concurrent analyze jobs           | `MAX_YOUTUBE_JOBS` in `src/lib/constants.ts`     |
+| Roast lines                       | `src/lib/roast.ts`                               |
+| Voices, TTS model                 | `src/lib/voices.ts`                              |
+| Praise cooldown                   | `PRAISE_COOLDOWN_MS` in `src/lib/useDetector.ts` |
 
 The roast lines use `eleven_v3` so the `[shouting]` tags actually shout, which
 costs ~3.4s to synthesize. `/api/speak` caches every line in memory and the

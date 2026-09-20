@@ -6,11 +6,14 @@ import { VOICE_FEEDBACK } from "./constants";
 import { pickLine, type Line } from "./roast";
 import { ScribeSession, type ScribeStatus } from "./scribe";
 import { Speaker } from "./speaker";
+import type { Session } from "./sessions-db";
 import type { Detection, Verdict } from "./types";
 
 /** Praise and scolding get a cooldown; an AI catch always speaks. */
 const PRAISE_COOLDOWN_MS = 15_000;
 const TICK_MS = 500;
+/** Autosave settles this long after the last change, so a burst writes once. */
+const SAVE_DEBOUNCE_MS = 800;
 
 export type Callout = {
   id: string;
@@ -34,6 +37,9 @@ export type DetectorState = {
   latest: Detection | null;
   error: string | null;
   wordsSent: number;
+  /** Row this session is being written to; null until the first chunk lands. */
+  sessionId: string | null;
+  saving: boolean;
 };
 
 export function useDetector(voiceId: string) {
@@ -50,6 +56,8 @@ export function useDetector(voiceId: string) {
   const [callout, setCallout] = useState<Callout | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [wordsSent, setWordsSent] = useState(0);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const sessionRef = useRef<ScribeSession | null>(null);
   const speakerRef = useRef<Speaker | null>(null);
@@ -59,6 +67,7 @@ export function useDetector(voiceId: string) {
   const lastLineRef = useRef<string | undefined>(undefined);
   const voiceIdRef = useRef(voiceId);
   const partialRef = useRef("");
+  const sessionIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     voiceIdRef.current = voiceId;
@@ -85,6 +94,14 @@ export function useDetector(voiceId: string) {
   const score = useCallback(
     async (text: string) => {
       const index = chunkIndexRef.current++;
+      // The first chunk of a take opens the session row. Allocating the id
+      // here rather than in the save effect means a mic opened and closed
+      // with nothing said never files anything.
+      if (!sessionIdRef.current) {
+        const id = crypto.randomUUID();
+        sessionIdRef.current = id;
+        setSessionId(id);
+      }
       setScoring(true);
       setWordsSent((w) => w + text.trim().split(/\s+/).filter(Boolean).length);
       try {
@@ -135,18 +152,16 @@ export function useDetector(voiceId: string) {
 
   const start = useCallback(
     async (deviceId?: string) => {
+      // Starting again resumes the same session rather than opening a new one:
+      // analyzed chunks, the billing count and the unanalyzed word buffer all
+      // survive a stop, so a pause mid-thought does not throw away the words
+      // banked before it. `reset` is the only thing that clears them.
       setError(null);
       setPartial("");
       partialRef.current = "";
-      setCommitted([]);
-      setDetections([]);
       setCallout(null);
-      setPendingWords(0);
-      setPendingText("");
-      setWordsSent(0);
-      chunkerRef.current.reset();
-      chunkIndexRef.current = 0;
-      lastPraiseRef.current = 0;
+      setPendingWords(chunkerRef.current.pendingWords);
+      setPendingText(chunkerRef.current.pendingText);
 
       const speaker = new Speaker(setSpeaking, (msg) => setError(msg));
       speakerRef.current = speaker;
@@ -193,17 +208,113 @@ export function useDetector(voiceId: string) {
     const session = sessionRef.current;
     sessionRef.current = null;
     await session?.stop();
-    // Fold in any in-flight partial so a mid-sentence stop still scores.
+    // Fold in any in-flight partial so a mid-sentence stop still gets analyzed.
+    // That last push can itself fill a chunk, and dropping what it hands back
+    // would throw the words away, so it takes priority over the flush.
     const leftover = partialRef.current.trim();
-    if (leftover) chunkerRef.current.push(leftover);
+    const filled = leftover ? chunkerRef.current.push(leftover) : null;
     partialRef.current = "";
-    const tail = chunkerRef.current.flush(STOP_FLUSH_WORDS);
-    setPendingWords(0);
-    setPendingText("");
+    // Enough words banked -> analyze them now, so stopping is what closes the
+    // chunk. Too few -> they stay in the buffer and the next start carries on
+    // from exactly here instead of dropping them.
+    const tail = filled ?? chunkerRef.current.flush(STOP_FLUSH_WORDS);
+    setPendingWords(chunkerRef.current.pendingWords);
+    setPendingText(chunkerRef.current.pendingText);
     setLevel(0);
     setPartial("");
     if (tail) void score(tail.text);
   }, [score]);
+
+  // Autosave. The session row is created by the first chunk that lands, so a
+  // mic opened and closed with nothing said leaves no row behind. Everything
+  // after that is an upsert of the same id, debounced so a burst of chunks
+  // costs one write.
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedRef = useRef("");
+  useEffect(() => {
+    if (detections.length === 0 || !sessionId) return;
+
+    const payload = JSON.stringify({
+      id: sessionId,
+      detections,
+      pendingText,
+      wordsSent,
+    });
+    if (payload === savedRef.current) return;
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      savedRef.current = payload;
+      setSaving(true);
+      void fetch("/api/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error("Could not save this session");
+        })
+        .catch((err: unknown) => {
+          // A failed save must not interrupt a recording in progress; the next
+          // chunk retries with the whole session, so nothing is lost.
+          savedRef.current = "";
+          setError(err instanceof Error ? err.message : "Could not save this session");
+        })
+        .finally(() => setSaving(false));
+    }, SAVE_DEBOUNCE_MS);
+
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [detections, pendingText, wordsSent, sessionId]);
+
+  /**
+   * Reopen a saved session so the next take appends to it: analyzed chunks
+   * come back on screen and the words it stopped short on go back into the
+   * buffer, exactly where the last stop left them.
+   */
+  const restore = useCallback((session: Session) => {
+    setDetections(session.detections);
+    setCommitted([]);
+    setCallout(null);
+    setError(null);
+    setPartial("");
+    partialRef.current = "";
+    setWordsSent(session.wordsSent);
+    chunkerRef.current.seed(session.pendingText);
+    setPendingWords(chunkerRef.current.pendingWords);
+    setPendingText(chunkerRef.current.pendingText);
+    chunkIndexRef.current = session.detections.length;
+    lastPraiseRef.current = 0;
+    savedRef.current = "";
+    sessionIdRef.current = session.id;
+    setSessionId(session.id);
+  }, []);
+
+  /**
+   * Clear the session: analyzed chunks, banked words, billing count. Safe to
+   * hit mid-recording — the mic stays open and the next words start a fresh
+   * first chunk.
+   */
+  const reset = useCallback(() => {
+    setDetections([]);
+    setCommitted([]);
+    setCallout(null);
+    setError(null);
+    setPartial("");
+    partialRef.current = "";
+    setWordsSent(0);
+    setPendingWords(0);
+    setPendingText("");
+    chunkerRef.current.reset();
+    chunkIndexRef.current = 0;
+    lastPraiseRef.current = 0;
+    // Detach from the stored row rather than deleting it: reset clears the
+    // screen, it does not throw away a session already in the rail.
+    savedRef.current = "";
+    sessionIdRef.current = null;
+    setSessionId(null);
+  }, []);
 
   // Pause flush: if the speaker has gone quiet with enough words banked, score
   // them rather than leaving them unscored until they start talking again.
@@ -240,7 +351,17 @@ export function useDetector(voiceId: string) {
     latest: detections.length ? detections[detections.length - 1] : null,
     error,
     wordsSent,
+    sessionId,
+    saving,
   };
 
-  return { ...state, start, stop, previewVoice, chunkTarget: CHUNK_TARGET_WORDS };
+  return {
+    ...state,
+    start,
+    stop,
+    reset,
+    restore,
+    previewVoice,
+    chunkTarget: CHUNK_TARGET_WORDS,
+  };
 }

@@ -68,6 +68,17 @@ export class TranscriptChunker {
     this.lastWordAt = 0;
   }
 
+  /**
+   * Refill the buffer when a saved session is reopened, so words banked below
+   * the floor last time carry into the next take instead of being dropped.
+   * The clock restarts from now: a buffer restored hours later should not
+   * immediately look like a pause worth flushing.
+   */
+  seed(text: string, now = Date.now()) {
+    this.pending = text.trim().split(/\s+/).filter(Boolean);
+    this.lastWordAt = now;
+  }
+
   private take(reason: ChunkReason): PendingChunk {
     const words = this.pending;
     this.pending = [];
