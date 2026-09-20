@@ -38,6 +38,7 @@ ELASTIC_API_KEY=...
 | Audio capture    | `getUserMedia` + an AudioWorklet (`public/worklets/pcm-recorder.js`) emitting PCM16 @ 16 kHz |
 | Media extraction | `yt-dlp` and `ffmpeg`, shelled out from the Node runtime                                     |
 | Storage          | Local SQLite via `node:sqlite`, file at `data/sloppy.db` (gitignored)                        |
+| Hardware         | ESP32-C3 badge (Arduino sketch in `badge_detect/wifi_api`): 6 WS2812 LEDs, ST7789 screen, HTTP API |
 
 Everything server-side runs on the Node runtime, not the edge — the analyze
 route spawns binaries and can take minutes.
@@ -96,6 +97,41 @@ its airdate at midnight UTC, so localising it would show the day before.
 5. **React** — `/api/speak` returns ElevenLabs audio for a line from
    `src/lib/roast.ts`. The mic is hard-muted before playback and reopened when
    it ends, so the app never transcribes its own voice.
+
+## The badge
+
+A physical ESP32-C3 badge mirrors the Live reading: six LEDs change colour and the
+screen shows the AI share. The badge runs its own small HTTP server on the local
+network, so the app just calls it. The Arduino sketch is in
+`badge_detect/wifi_api.ino`. It needs the ESP32 board package and the
+Adafruit NeoPixel, Adafruit GFX and Adafruit ST7735 and ST7789 libraries, and the
+Wi-Fi name and password are set at the top of the sketch.
+
+| Call                                    | Effect                                                                  |
+| --------------------------------------- | ----------------------------------------------------------------------- |
+| `POST /api/score {"score": 87}`         | Screen shows `87% AI`, red at 50 and above, green below                 |
+| `POST /api/score {"score": -1}`         | Screen shows `Analyzing` (use while a chunk is being scored)            |
+| `POST /api/led {"state": "flash_red"}`  | LEDs: `off`, `yellow`, `green`, `red`, `flash_red` or `flash_green`     |
+| `GET /api/led`, `GET /api/score`        | Read the current LED state or score                                     |
+| `GET /api/status`                       | LED state, score, IP and uptime (works as a heartbeat)                  |
+
+```bash
+curl "http://<badge-ip>/api/status"
+curl "http://<badge-ip>/api/led?state=green"
+curl "http://<badge-ip>/api/score?score=-1"
+```
+
+(On Windows PowerShell, use `curl.exe`.)
+
+Things to know:
+
+- The badge and the machine calling it must be on the same 2.4 GHz Wi-Fi. The badge
+  shows its IP at the bottom of the screen, and opening `http://<badge-ip>/` in a
+  browser gives a manual button page for testing the LEDs.
+- It is plain HTTP with no authentication, for local-network use only.
+- State isn't saved: after a reboot the LEDs are off and the screen says `Analyzing`.
+  Re-send the state if `uptime_s` in `/api/status` resets.
+- There are no CORS headers, so call it from a server route, not directly from the browser.
 
 ## The map
 
@@ -168,6 +204,7 @@ proof of authorship.
 | Roast lines                       | `src/lib/roast.ts`                               |
 | Voices, TTS model                 | `src/lib/voices.ts`                              |
 | Praise cooldown                   | `PRAISE_COOLDOWN_MS` in `src/lib/useDetector.ts` |
+| Badge colours, thresholds, screen layout | `badge_detect/wifi_api.ino` |
 
 The roast lines use `eleven_v3` so the `[shouting]` tags actually shout, which
 costs ~3.4s to synthesize. `/api/speak` caches every line in memory and the
